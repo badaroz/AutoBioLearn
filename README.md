@@ -10,8 +10,9 @@ Note - AutoBioLearn is still under development - we cannot guarantee full functi
 
 To make it easier to configure the environment, a file has been made available with the libraries needed for requirements file, which can be found here
 to install command `pip install -r requirements.txt`
-# biblioteca-dissertacao
-dependency libraries:
+# Examples
+Examples can find in examples folder
+# Dependency libraries
 pandas==2.2.2
 ydata-profiling==4.8.3
 scikit-learn==1.5.1
