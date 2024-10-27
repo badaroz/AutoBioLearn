@@ -1,0 +1,259 @@
+from abc import ABC, abstractmethod
+from matplotlib import pyplot as plt
+from matplotlib.pylab import f
+from data_treatement import DataProcessor, DatasetByFile,Dataset
+
+from sklearn.model_selection import GridSearchCV, ParameterGrid, RandomizedSearchCV
+
+import pandas as pd
+from decorators.DatasetDecorators import requires_dataset
+import shap
+
+from helpers import XAIHelper, ModelHelper
+
+class AutoBioLearn(ABC):
+
+    def __init__(self) -> None:
+        
+        self._validations_execution = {}
+        validation_object = ModelHelper.get_validations("split")
+        self._validations_execution["split"] = {
+            'validation': validation_object,
+            'num_folds': 0,
+            'train_size': 70
+        }  
+
+    def get_dataset(self, data_processor: DataProcessor):
+        if not hasattr(self, 'data_processor'):
+            self.data_processor = data_processor  
+            
+    @requires_dataset
+    def data_analysis(self, path_to_save_report=None):        
+        self.data_processor.dataset.data_analysis(path_to_save_report=path_to_save_report)
+
+   
+    def convert_categorical_to_numerical(self, cols:list[str] = []):
+        self.data_processor.convert_categorical_to_numerical(cols)
+
+    def drop_cols_na(self, percent=30.0):
+        self.data_processor.drop_cols_na(percent)
+
+    def drop_rows_na(self, percent=10.0):
+        self.data_processor.drop_rows_na(percent)
+
+    def print_cols_na(self):
+        self.data_processor.print_cols_na()
+    
+    def print_rows_na(self):
+        self.data_processor.print_rows_na()
+
+    def remove_cols(self, cols:list[str] = []):
+        self.data_processor.remove_cols(cols)
+
+    @requires_dataset
+    def remove_duplicates(self):      
+        self.data_processor.dataset.remove_duplicates()
+
+    def convert_datetime_to_numerical(self, cols:list[str] = []):
+        self.data_processor.convert_datetime_to_numerical(cols)
+
+    @requires_dataset    
+    def input_na(self,method="knn"):       
+        self.data_processor.dataset.input_na(method=method)
+
+    def set_validations(self, validations:list[str]=["split"], params ={}):
+        self._validations_execution= {}     
+
+        for validation in validations:
+            validation_object = ModelHelper.get_validations(validation)
+            validation_params = ModelHelper.get_model_params(validation,params)
+            self._validations_execution[validation] =  { 'validation': validation_object, 'num_folds': validation_params["num_folds"],'train_size':validation_params["train_size"]}
+                
+    @abstractmethod
+    def run_models(self, models:list[str]=["xgboost"],  times_repeats:int=10, params={}):
+        return
+    
+    @abstractmethod
+    def run_models_with_best_model(self, models:list[str]=["xgboost"], times_repeats:int=10,params={}, params_method="grid"):
+       return   
+
+
+    def _find_best_hyperparams(self, clf_model,
+                          X,
+                          y,
+                          param_grid,
+                          param_sel_obj,
+                            validation,num_folds, train_size
+                          ):    
+
+        train_i = ModelHelper.initialize_validation(validation,num_folds,train_size, X,y)
+
+    # Grid search optimal parameters
+        clf_grid = param_sel_obj(clf_model,
+                                  param_grid,                                  
+                                  #cv=train_i,
+                                  )
+
+    # training model
+        clf_grid.fit(X, y)
+        return clf_grid.best_params_
+
+    def eval_models(self, metrics:list[str]=[])-> dict:
+        self._calculate_metrics()
+        all_list = {}
+        for metric in metrics:
+            all_list[metric] = self._metrics[["Model",metric ]].groupby('Model').describe()      
+        
+        all_list["complete"] = self._metrics[["Model","Validation","Time_of_execution","Fold"]+ metrics]
+        return all_list
+    
+    @abstractmethod
+    def _calculate_metrics(self):
+        return
+    
+    def plot_metrics(self, metrics:list[str]=[],rot=90, figsize=(12,6), fontsize=20):
+        for metric in metrics:                
+            df2  = pd.DataFrame({col:vals[metric] for col, vals in self._metrics.groupby("Model")})
+            meds = df2.median().sort_values(ascending=False)
+            axes = df2[meds.index].boxplot(figsize=figsize, rot=rot, fontsize=fontsize,
+                                        #by="Model",
+                                        boxprops=dict(linewidth=4, color='cornflowerblue'),
+                                        whiskerprops=dict(linewidth=4, color='cornflowerblue'),
+                                        medianprops=dict(linewidth=4, color='firebrick'),
+                                        capprops=dict(linewidth=4, color='cornflowerblue'),
+                                        flierprops=dict(marker='o', markerfacecolor='dimgray',
+                                                        markersize=12, markeredgecolor='black'))
+            axes.set_ylabel(metric, fontsize=fontsize)
+            axes.set_title("")
+            axes.get_figure().suptitle('Boxplots of %s metric' % (metric),
+                        fontsize=fontsize)
+            #axes.get_figure().show()
+            plt.show()
+            
+
+    
+    def run_xai_analysis(self,time=None,validation=None,fold=None,model=None):
+        models_explained = self._models_executed.copy()
+
+        if time is not None:
+            models_explained = filter(lambda x: x["time"] in time, models_explained)
+        
+        if validation is not None:
+            models_explained = filter(lambda x: x["validation"] in validation, models_explained)
+        
+        if fold is not None:
+            models_explained = filter(lambda x: x["fold"] in fold, models_explained)
+        
+        if model is not None:
+            models_explained = filter(lambda x: x["model_name"] in model, models_explained)
+        
+        self.__SHAP_analisys = []      
+        for model in models_explained:
+            explainer = shap.TreeExplainer(model["model"])
+            shap_values = explainer.shap_values(model["x_test"])
+            shap_obj    = explainer(model["x_test"])
+            expected_value = explainer.expected_value
+            self.__SHAP_analisys.append({"time":model["time"],
+                                        "validation":model["validation"],
+                                        "fold":model["fold"],
+                                        "model_name":model["model_name"],
+                                        "shap_obj": shap_obj,
+                                        "shap_values": shap_values})
+            
+    
+    def run_xai_analysis_v2(self,**kwargs):
+        """
+        kwargs use a list to filter by key models to analisys, where each key receives a list of values that will be filtered 
+        kwargs params: time, validation, model_name, fold.
+        Eg.: fold = [1,2,3]
+        """
+        models_explained = self._models_executed.copy()
+
+        for key, value in kwargs.items():
+            models_explained = filter(lambda x: x[key] in value, models_explained)      
+        
+        self.__SHAP_analisys = []
+        x = self.Dataset.get_X()
+        for model in models_explained:           
+            
+            x_to_consolidated = x.iloc[model["x_test_index"]]
+
+            explainer_consolidated =  XAIHelper.get_explainer(model=model,X=x_to_consolidated)
+
+            shap_values_consolidated = explainer_consolidated.shap_values(x_to_consolidated)
+            shap_obj_consolidated    = explainer_consolidated(x_to_consolidated)
+            
+            expected_value_consolidated = explainer_consolidated.expected_value            
+
+            explainer =   XAIHelper.get_explainer(model=model,X=x)
+
+            shap_values = explainer.shap_values(x)
+            shap_obj    = explainer(x)
+
+            expected_value = explainer.expected_value
+            self.__SHAP_analisys.append({"time":model["time"],
+                                        "validation":model["validation"],
+                                        "fold":model["fold"],
+                                        "model_name":model["model_name"],
+                                        "shap_obj": shap_obj,
+                                        "shap_values": shap_values,
+                                        "expected_value":expected_value,
+                                        "shap_obj_consolidated": shap_obj_consolidated,
+                                        "shap_values_consolidated": shap_values_consolidated,
+                                        "expected_value_consolidated":expected_value_consolidated,
+                                        "x_test_index": model["x_test_index"]})
+            
+    # Ajustar o consolidado conforme o notebook https://colab.research.google.com/drive/10WFEIU4_6zgtD3uVlnbR68N9G6VilFzi#scrollTo=lLwuuCnfBGvo onde está o texto "OLHAR AQUI"
+    def plot_xai_analysis(self,index_to_filter=None,consolidated= False,graph_type_global="summary",graph_type_local="force",show_all_features =True,class_index=0,**kwargs):
+        """
+        class_index works only lightgbm models, class_index is max value the number of classes in dataset -1.(Eg.: total class = 3, class_index_max=2)
+        kwargs use a list to filter by key models to analisys, where each key receives a list of values that will be filtered 
+        kwargs params: time, validation, model_name, fold.
+        Eg.: fold = [1,2,3]
+        """
+
+        number_class = self.Dataset.get_Y().nunique()
+
+        if number_class <= class_index or class_index < 0:
+             raise Exception("class_index is not valid")
+
+        models_explained = self.__SHAP_analisys.copy()
+
+        kwargs_filtered_models = {key: value for  key, value in kwargs.items() if key not in "graph_params"}
+
+        for key, value in kwargs_filtered_models.items():
+            models_explained = filter(lambda x: x[key] in value, models_explained) 
+        
+        X = self.Dataset.get_X()
+
+        kwargs_filtered_graph= {key: value for  key, value in kwargs.items() if key in "graph_params"}
+        #plt.switch_backend('agg')
+        if consolidated:          
+            models = list(set([x["model_name"] for x in models_explained]))
+            
+            for model in models:
+                shap_values, X_test = XAIHelper.get_consolidate_shap_values(models_explained, model, X, index_to_filter)                
+               
+                if index_to_filter is not None:
+                    pass
+                    #shap.plots.force(shap_values)
+                    #XAIHelper.get_graphic_type_local(graph_type_local,model_explainable["expected_value"],shap_values[index_to_filter],x.iloc[index_to_filter],kwargs_filtered_graph)
+                else:
+                    XAIHelper.get_graphic_type_global(graph_type_global,shap_values,X_test,kwargs_filtered_graph, show_all_features=show_all_features)
+
+        else:
+            for model_explainable in models_explained:
+                if index_to_filter is not None:
+                    if model_explainable["model_name"] == ModelHelper.const_lightboost():
+                        XAIHelper.get_graphic_type_local(graph_type_local,model_explainable["expected_value"][class_index],model_explainable["shap_values"][class_index][index_to_filter], \
+                                                          X.iloc[index_to_filter],kwargs_filtered_graph, show_all_features=show_all_features)
+
+                    else:
+                        XAIHelper.get_graphic_type_local(graph_type_local,model_explainable["expected_value"],model_explainable["shap_values"][index_to_filter],X.iloc[index_to_filter], \
+                                                         kwargs_filtered_graph, show_all_features=show_all_features)
+
+                else:
+                    XAIHelper.get_graphic_type_global(graph_type_global,model_explainable["shap_values"],X,kwargs_filtered_graph, show_all_features=show_all_features)
+                 
+               
+         
