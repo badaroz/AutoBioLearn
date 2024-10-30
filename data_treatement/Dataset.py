@@ -17,22 +17,28 @@ from IPython.display import display, HTML
 from sklearn.impute import KNNImputer, SimpleImputer
 class Dataset:
 
-    def __typesToX(self):
+    def _typesToX(self):
         return ['int64', 'float64','int32']
     
     def __init__(self, original_data: DataFrame, target: str, verbose= False):        
       
         DatasetHelper.normalize_columns_name(original_data)
 
-        self.__Original_Data = original_data.copy(deep=True)
-        self.__Data = original_data.copy(deep=True)
-        self.__Target = target
+        self.__original_data = original_data.copy(deep=True)
+        self._data = original_data.copy(deep=True)
+        self.__target = target
+        self.has_many_header = isinstance(original_data.columns, pd.MultiIndex)
+        self.sections = []
+
+        if self.has_many_header:
+            self.sections = np.unique(original_data.columns.get_level_values(0).values)            
+            self.__target = self.__find_multiindex(self.__target)
 
         if verbose:
             print("Details of your Database")    
             #region Data balacing        
 
-            _classes = self.__Data[self.__Target].value_counts(normalize=True) * 100
+            _classes = self._data[self.__target].value_counts(normalize=True) * 100
 
             print("Percent of class:")
             print(_classes)
@@ -41,7 +47,7 @@ class Dataset:
 
             #region Outliers
 
-            self.__cols_outliers = DatasetHelper.find_columns_with_outliers(self.__Data)
+            self.__cols_outliers = DatasetHelper.find_columns_with_outliers(self._data)
             if any( self.__cols_outliers):
                 print("Columns with outliers:")
                 print("\n".join(self.__cols_outliers))
@@ -50,7 +56,7 @@ class Dataset:
                 
 
     def data_analysis(self,path_to_save_report=None):
-        profile = ProfileReport(self.__Data, title="Profiling Report")
+        profile = ProfileReport(self._data, title="Profiling Report")
         report = profile.to_html()
         
         display(HTML(report))
@@ -64,14 +70,14 @@ class Dataset:
 
     def remove_duplicates(self,use_original_data: False):
         if use_original_data:
-            self.__Data = self.__Original_Data.drop_duplicates(ignore_index=True)
+            self._data = self.__original_data.drop_duplicates(ignore_index=True)
         else:
-            self.__Data = self.__Data.drop_duplicates(ignore_index=True)
+            self._data = self._data.drop_duplicates(ignore_index=True)
 
     def __count_na(self, axis=1):
         neg_axis = 1 - axis
-        count   = self.__Data.isna().sum(axis=neg_axis)
-        percent = self.__Data.isna().mean(axis=neg_axis) * 100
+        count   = self._data.isna().sum(axis=neg_axis)
+        percent = self._data.isna().mean(axis=neg_axis) * 100
         df_na   = pd.DataFrame({'percent':percent, 'count':count})
         index_name = 'column' if axis==ContentHelper.const_axis_column() else 'index'
         df_na.index.name = index_name
@@ -92,97 +98,96 @@ class Dataset:
         if show_dropped:
             print(to_drop)
         
-        self.__Data = self.__Data.drop(labels=to_drop, axis=axis)  
+        self._data = self._data.drop(labels=to_drop, axis=axis)  
 
     def resolve_missing_data(self, startegy='mean' ,use_original_data= False):       
         imputer = SimpleImputer(fill_value=np.nan, startegy=startegy)
 
         if use_original_data:
-            self.__Data = self.__Original_Data
+            self._data = self.__original_data
 
-        self.__Data = imputer.fit_transform(self.__Data)
+        self._data = imputer.fit_transform(self._data)
 
     def remove_outliers(self, method_remove= "limit_method", use_original_data= False):
         if method_remove is None:
             raise AttributeError("method_remove is not null")
         
         if use_original_data:
-            self.__Data = self.__Original_Data
+            self._data = self.__original_data
        
         for col in self.__cols_outliers:
 
             if method_remove == "limit_method":
 
-                min_limit,max_limit =DatasetHelper.find_outliers_limit_IQR(self.__Data[col])
+                min_limit,max_limit =DatasetHelper.find_outliers_limit_IQR(self._data[col])
                 
                 #add +1 for remove all outliers, because if have a a big difference between limits and values outliers, still go have new outliers 
-                percentile_min = (stats.percentileofscore(self.__Data[col], min_limit)+1)/100
-                percentile_max = (100-stats.percentileofscore(self.__Data[col], max_limit)+1)/100
-                self.__Data[col] = winsorize(self.__Data[col], limits=[percentile_min, percentile_max])
+                percentile_min = (stats.percentileofscore(self._data[col], min_limit)+1)/100
+                percentile_max = (100-stats.percentileofscore(self._data[col], max_limit)+1)/100
+                self._data[col] = winsorize(self._data[col], limits=[percentile_min, percentile_max])
 
             elif method_remove == 'log_transformation':
 
-                self.__Data[col] = np.log(self.__Data[col])
+                self._data[col] = np.log(self._data[col])
 
             elif method_remove == 'mean_value':
 
-                mean = np.mean(self.__Data[col])
-                df_aux= DatasetHelper.find_outliers_IQR(self.__Data[col]).dropna(axis=0,how='all')
-                self.__Data.loc[self.__Data[col].isin(df_aux),col] = mean
+                mean = np.mean(self._data[col])
+                df_aux= DatasetHelper.find_outliers_IQR(self._data[col]).dropna(axis=0,how='all')
+                self._data.loc[self._data[col].isin(df_aux),col] = mean
             else:
                 raise AttributeError("method_remove not exists")
    
 
     def clean_data(self,cols_to_drop:list[str] = [],cols_date:list[str] = [], try_convert_values= False, use_original_data= False):
         if use_original_data:
-            self.__Data = self.__Original_Data
+            self._data = self.__original_data
         
         if cols_to_drop is not None and any(cols_to_drop):
-            self.__Data.drop(cols_to_drop,axis=1,inplace=True)
+            self._data.drop(cols_to_drop,axis=1,inplace=True)
 
         if cols_date is not None and any(cols_date):
-            ContentHelper.convert_datetime(self.__Data,cols_date)
+            ContentHelper.convert_datetime(self._data,cols_date)
 
         if try_convert_values:
-            ContentHelper.try_convert_object_values(self.__Data)  
+            ContentHelper.try_convert_object_values(self._data)  
 
     def convert_cols_values(self, cols:list[str] = [""] ):
-        ContentHelper.convert_cols_values(self.__Data,cols)
+        ContentHelper.convert_cols_values(self._data,cols)
     
-    def get_X(self)->DataFrame:
-        numeric_cols = [cname for cname in self.__Data.columns if self.__Data[cname].dtype in self.__typesToX()]
-        X = self.__Data[numeric_cols].copy()
+    def get_X(self, section: str= None)->DataFrame:
+        if section is None and self.has_many_header:
+            numeric_cols = [cname for cname in self._data.columns if self._data[cname].dtype in self._typesToX()]
+            X = self._data[numeric_cols].copy()
+        else:
+            numeric_cols = [cname for cname in self._data[section].columns if self._data[section][cname].dtype in self._typesToX()]
+            X = self._data[section][numeric_cols].copy()
         
-        if self.__Data[self.__Target].dtype not in self.__typesToX():           
+        if self.__target not in numeric_cols:           
             return X 
         else:
-            return X.drop([self.__Target],axis=1,inplace=False)
+            return X.drop([self.__target],axis=1,inplace=False)
     
-    def get_Y(self)->DataFrame:
-        if self.__Data[self.__Target].dtype not in self.__typesToX():
-            self.convert_cols_values([self.__Target])
+    def get_Y(self)->DataFrame:   
+        return self._get_Y(self.__target)
+    
+    def _get_Y(self, target)->DataFrame:
+        if self._data[target].dtype not in self._typesToX():
+            self.convert_cols_values([target])
             
-        return self.__Data[self.__Target]
+        return self._data[target]
     
     def input_na(self, method="knn", n_neighbors=5):
         if method == "knn":
-            imputer = KNNImputer(n_neighbors=n_neighbors)
-            self.__Data = imputer.fit_transform(self.__Data)
+            imputer = KNNImputer(n_neighbors=n_neighbors)            
         else:
-            self.__input_na_aux(method=method)
+           imputer = SimpleImputer(fill_value=np.nan, startegy=method)
+        
+        self._data = imputer.fit_transform(self._data) 
 
 
-    def __input_na_aux(self,method):
-        df_na = self.__count_na(axis=ContentHelper.const_axis_column())
-        to_input = df_na[df_na['percent'] > 0]["column"].values
-        for column in to_input:
-            self.__Data[column].fillna(self.__get_value_to_input(method=method,column=column), inplace=True)
-    
-    def __get_value_to_input(self, method, column):
-    
-        if method == "mode":
-            return self.__Data[column].mode()[0]
-        elif method == "median":
-             return self.__Data[column].median()
-        elif method == "median":
-           return self.__Data[column].median()
+    def __find_multiindex(self, col):
+        for idx in self._data.columns:
+            if col in idx:
+                return idx
+        return None

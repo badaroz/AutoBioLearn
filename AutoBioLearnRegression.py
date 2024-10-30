@@ -2,23 +2,28 @@ import pandas as pd
 from sklearn.metrics import mean_absolute_percentage_error, mean_squared_error, root_mean_squared_error, r2_score, median_absolute_error
 from sklearn.model_selection import GridSearchCV, ParameterGrid, RandomizedSearchCV
 from AutoBioLearn import AutoBioLearn
+from decorators.DatasetDecorators import apply_per_grouping, requires_dataset
 from helpers import ModelHelper
 
 
 class AutoBioLearnRegression(AutoBioLearn):
-    def run_models(self, models:list[str]=["xgboost"],  times_repeats:int=10, params={}):
+    @requires_dataset
+    @apply_per_grouping
+    def run_models(self, models:list[str]=["xgboost"],  times_repeats:int=10, params={}, section: str=None):
 
         models_execution = {}
+        self._models_executed = []
+
+        x = self.data_processor.dataset.get_X(section)
+        try:
+            y = self.data_processor.dataset.get_Y(section)
+        except:
+            y = self.data_processor.dataset.get_Y()
+
 
         for model_name in models:
             models_execution[model_name] = ModelHelper.get_model(model_name, "regressor")
-        metrics = []
-
-        self._models_executed = []
-
-        x = self.Dataset.get_X()
-        y = self.Dataset.get_Y()
-
+            
         for model_name, (model_object, model_params_hidden_verbosity) in models_execution.items():
 
             model_params = ModelHelper.get_model_params(model_name,params)       
@@ -60,10 +65,13 @@ class AutoBioLearnRegression(AutoBioLearn):
                                                             "y_pred":y_pred,
                                                             "y_test":y_test,
                                                             "x_test_index":test_index })
-    
-    def run_models_with_best_model(self, models:list[str]=["xgboost"],  times_repeats:int=10,params={}, params_method="grid"):
+                                
+    @requires_dataset
+    @apply_per_grouping
+    def run_models_with_best_model(self, models:list[str]=["xgboost"],  times_repeats:int=10,params={}, params_method="grid", section: str = None):
         models_execution = {}
-
+        self._models_executed = []
+        
         if params_method == 'random':
             model_gen =  RandomizedSearchCV
         else:
@@ -71,12 +79,12 @@ class AutoBioLearnRegression(AutoBioLearn):
 
         for model_name in models:
             models_execution[model_name] = ModelHelper.get_model(model_name, "regressor")
-      
 
-        self._models_executed = []
-
-        x = self.Dataset.get_X()
-        y = self.Dataset.get_Y()
+        x = self.data_processor.dataset.get_X(section)
+        try:
+            y = self.data_processor.dataset.get_Y(section)
+        except:
+            y = self.data_processor.dataset.get_Y()
 
         for model_name, (model_object, model_params_hidden_verbosity) in models_execution.items():
 

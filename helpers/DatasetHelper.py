@@ -41,7 +41,7 @@ class DatasetHelper(object):
 
         nlevels = df.columns.nlevels 
    
-        if df.columns is MultiIndex:
+        if isinstance(df.columns, pd.MultiIndex):
             for i in range(nlevels):
                 for key,value in dict_of_str.items():
                     df.columns = df.columns.set_levels(df.columns.levels[i].str.replace(key, value), level=i)

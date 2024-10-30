@@ -1,8 +1,8 @@
 import pandas as pd
 from sklearn.metrics import f1_score, precision_score, recall_score, roc_auc_score,accuracy_score
-from sklearn.model_selection import GridSearchCV, ParameterGrid, RandomizedSearchCV, RepeatedStratifiedKFold
+from sklearn.model_selection import GridSearchCV, ParameterGrid, RandomizedSearchCV
 from AutoBioLearn import AutoBioLearn
-from decorators.DatasetDecorators import requires_dataset
+from decorators.DatasetDecorators import apply_per_grouping, requires_dataset
 from helpers import ModelHelper
 from imblearn.over_sampling import SMOTE
 
@@ -15,16 +15,20 @@ class AutoBioLearnClassification(AutoBioLearn):
         self.__balancing = balancing
         
     @requires_dataset
-    def run_models(self, models:list[str]=["xgboost"],  times_repeats:int=10, params={}):
-
+    @apply_per_grouping
+    def run_models(self, models:list[str]=["xgboost"],  times_repeats:int=10, params={}, section:str=None):       
+        
         models_execution = {}
         self._models_executed = []
         
         for model_name in models:
             models_execution[model_name] = ModelHelper.get_model(model_name, "classifier")      
 
-        x = self.Dataset.get_X()
-        y = self.Dataset.get_Y()
+        x = self.data_processor.dataset.get_X(section)
+        try:
+            y = self.data_processor.dataset.get_Y(section)
+        except:
+            y = self.data_processor.dataset.get_Y()
 
         for model_name, (model_object, model_params_hidden_verbosity) in models_execution.items():
 
@@ -70,10 +74,12 @@ class AutoBioLearnClassification(AutoBioLearn):
                                                             "x_test_index":test_index })    
     
     @requires_dataset
+    @apply_per_grouping
     def run_models_with_best_model(self, models:list[str]=["xgboost"],  
                                    times_repeats:int=10,
                                    params={}, 
-                                   params_method="grid"):
+                                   params_method="grid",
+                                   section: str=None):
         models_execution = {}
 
         if params_method == 'random':
@@ -84,8 +90,11 @@ class AutoBioLearnClassification(AutoBioLearn):
         for model_name in models:
             models_execution[model_name] = ModelHelper.get_model(model_name, "classifier")      
 
-        x = self.Dataset.get_X()
-        y = self.Dataset.get_Y()
+        x = self.data_processor.dataset.get_X(section)
+        try:
+            y = self.data_processor.dataset.get_Y(section)
+        except:
+            y = self.data_processor.dataset.get_Y()
 
         self._models_executed = []
 

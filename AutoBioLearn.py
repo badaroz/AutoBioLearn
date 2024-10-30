@@ -1,12 +1,10 @@
 from abc import ABC, abstractmethod
 from matplotlib import pyplot as plt
 from matplotlib.pylab import f
-from data_treatement import DataProcessor, DatasetByFile,Dataset
-
-from sklearn.model_selection import GridSearchCV, ParameterGrid, RandomizedSearchCV
+from data_treatement import DataProcessor
 
 import pandas as pd
-from decorators.DatasetDecorators import requires_dataset
+from decorators.DatasetDecorators import apply_per_section_2, requires_dataset
 import shap
 
 from helpers import XAIHelper, ModelHelper
@@ -31,22 +29,28 @@ class AutoBioLearn(ABC):
     def data_analysis(self, path_to_save_report=None):        
         self.data_processor.dataset.data_analysis(path_to_save_report=path_to_save_report)
 
-   
+    @requires_dataset
     def convert_categorical_to_numerical(self, cols:list[str] = []):
         self.data_processor.convert_categorical_to_numerical(cols)
 
+    @requires_dataset
     def drop_cols_na(self, percent=30.0):
         self.data_processor.drop_cols_na(percent)
 
+    @requires_dataset
     def drop_rows_na(self, percent=10.0):
         self.data_processor.drop_rows_na(percent)
 
+    @requires_dataset
     def print_cols_na(self):
         self.data_processor.print_cols_na()
     
+    @requires_dataset  
     def print_rows_na(self):
+        a = ""
         self.data_processor.print_rows_na()
 
+    @requires_dataset
     def remove_cols(self, cols:list[str] = []):
         self.data_processor.remove_cols(cols)
 
@@ -70,7 +74,7 @@ class AutoBioLearn(ABC):
             self._validations_execution[validation] =  { 'validation': validation_object, 'num_folds': validation_params["num_folds"],'train_size':validation_params["train_size"]}
                 
     @abstractmethod
-    def run_models(self, models:list[str]=["xgboost"],  times_repeats:int=10, params={}):
+    def run_models(self, models:list[str]=["xgboost"],  times_repeats:int=10, params={}, section:str=None):
         return
     
     @abstractmethod
