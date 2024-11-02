@@ -4,7 +4,7 @@ from matplotlib.pylab import f
 from data_treatement import DataProcessor
 
 import pandas as pd
-from decorators.DatasetDecorators import apply_per_section_2, requires_dataset
+from decorators.DatasetDecorators import  apply_per_grouping, requires_dataset
 import shap
 
 from helpers import XAIHelper, ModelHelper
@@ -12,7 +12,7 @@ from helpers import XAIHelper, ModelHelper
 class AutoBioLearn(ABC):
 
     def __init__(self) -> None:
-        
+        self._models_executed = []
         self._validations_execution = {}
         validation_object = ModelHelper.get_validations("split")
         self._validations_execution["split"] = {
@@ -46,20 +46,19 @@ class AutoBioLearn(ABC):
         self.data_processor.print_cols_na()
     
     @requires_dataset  
-    def print_rows_na(self):
-        a = ""
+    def print_rows_na(self):       
         self.data_processor.print_rows_na()
 
     @requires_dataset
-    def remove_cols(self, cols:list[str] = []):
-        self.data_processor.remove_cols(cols)
+    def remove_cols(self, cols:list[str] = [], cols_levels= 0):
+        self.data_processor.remove_cols(cols, cols_levels= cols_levels)
 
     @requires_dataset
     def remove_duplicates(self):      
         self.data_processor.dataset.remove_duplicates()
 
-    def convert_datetime_to_numerical(self, cols:list[str] = []):
-        self.data_processor.convert_datetime_to_numerical(cols)
+    def convert_datetime_to_numerical(self, cols:list[str] = [], cols_levels= 0):
+        self.data_processor.convert_datetime_to_numerical(cols, cols_levels= cols_levels)
 
     @requires_dataset    
     def input_na(self,method="knn"):       
@@ -80,6 +79,23 @@ class AutoBioLearn(ABC):
     @abstractmethod
     def run_models_with_best_model(self, models:list[str]=["xgboost"], times_repeats:int=10,params={}, params_method="grid"):
        return   
+
+    def _add_model_executed(self ,time: int,validation: str, fold: int,                                                         
+                            model_name: str, model,y_pred, y_test, x_test_index, section= None):
+        
+        instance = {"time":time,
+                                                            "validation":validation,
+                                                            "fold":fold,                                                        
+                                                            "model_name":model_name,
+                                                            "model":model,
+                                                            "y_pred":y_pred,
+                                                            "y_test":y_test,
+                                                            "x_test_index":x_test_index }
+        
+        if section:
+           instance["section"] = section 
+
+        self._models_executed.append(instance)
 
 
     def _find_best_hyperparams(self, clf_model,
@@ -102,22 +118,36 @@ class AutoBioLearn(ABC):
         clf_grid.fit(X, y)
         return clf_grid.best_params_
 
-    def eval_models(self, metrics:list[str]=[])-> dict:
-        self._calculate_metrics()
+    def eval_models(self, metrics:list[str]=[], section: str = None)-> dict:
+        if not hasattr(self, '_metrics'):
+            self._calculate_metrics()
+
         all_list = {}
+
+        section_metrics = self._metrics
+
+        if section is not None and self.data_processor.dataset.has_many_header:
+            section_metrics = self._metrics[self._metrics["Section"] == section]
+
         for metric in metrics:
-            all_list[metric] = self._metrics[["Model",metric ]].groupby('Model').describe()      
+            all_list[metric] = section_metrics[["Model",metric ]].groupby('Model').describe()      
         
-        all_list["complete"] = self._metrics[["Model","Validation","Time_of_execution","Fold"]+ metrics]
+        all_list["complete"] = section_metrics[["Model","Validation","Time_of_execution","Fold"]+ metrics]
         return all_list
     
     @abstractmethod
     def _calculate_metrics(self):
         return
     
-    def plot_metrics(self, metrics:list[str]=[],rot=90, figsize=(12,6), fontsize=20):
+    def plot_metrics(self, metrics:list[str]=[],rot=90, figsize=(12,6), fontsize=20, section: str = None ):
+
+        section_metrics = self._metrics
+        
+        if section is not None and self.data_processor.dataset.has_many_header:
+            section_metrics = self._metrics[self._metrics["Section"] == section]
+
         for metric in metrics:                
-            df2  = pd.DataFrame({col:vals[metric] for col, vals in self._metrics.groupby("Model")})
+            df2  = pd.DataFrame({col:vals[metric] for col, vals in section_metrics.groupby("Model")})
             meds = df2.median().sort_values(ascending=False)
             axes = df2[meds.index].boxplot(figsize=figsize, rot=rot, fontsize=fontsize,
                                         #by="Model",
@@ -177,9 +207,23 @@ class AutoBioLearn(ABC):
             models_explained = filter(lambda x: x[key] in value, models_explained)      
         
         self.__SHAP_analisys = []
-        x = self.Dataset.get_X()
+
+        if not self.data_processor.dataset.has_many_header:
+            x = self.data_processor.dataset.get_X()
+
         for model in models_explained:           
             
+            shap_model_analisys = {"time":model["time"],
+                                        "validation":model["validation"],
+                                        "fold":model["fold"],
+                                        "model_name":model["model_name"],
+                                        "x_test_index": model["x_test_index"]
+                                    }
+
+            if "section" in model:
+                shap_model_analisys["section"] = model["section"]
+                x = self.data_processor.dataset.get_X(model["section"])
+
             x_to_consolidated = x.iloc[model["x_test_index"]]
 
             explainer_consolidated =  XAIHelper.get_explainer(model=model,X=x_to_consolidated)
@@ -195,40 +239,33 @@ class AutoBioLearn(ABC):
             shap_obj    = explainer(x)
 
             expected_value = explainer.expected_value
-            self.__SHAP_analisys.append({"time":model["time"],
-                                        "validation":model["validation"],
-                                        "fold":model["fold"],
-                                        "model_name":model["model_name"],
-                                        "shap_obj": shap_obj,
-                                        "shap_values": shap_values,
-                                        "expected_value":expected_value,
-                                        "shap_obj_consolidated": shap_obj_consolidated,
-                                        "shap_values_consolidated": shap_values_consolidated,
-                                        "expected_value_consolidated":expected_value_consolidated,
-                                        "x_test_index": model["x_test_index"]})
+            shap_model_analisys["shap_obj"]= shap_obj
+            shap_model_analisys["shap_values"]= shap_values
+            shap_model_analisys["expected_value"]=expected_value
+            shap_model_analisys["shap_obj_consolidated"]= shap_obj_consolidated
+            shap_model_analisys["shap_values_consolidated"]= shap_values_consolidated
+            shap_model_analisys["expected_value_consolidated"]=expected_value_consolidated  
             
-    # Ajustar o consolidado conforme o notebook https://colab.research.google.com/drive/10WFEIU4_6zgtD3uVlnbR68N9G6VilFzi#scrollTo=lLwuuCnfBGvo onde está o texto "OLHAR AQUI"
+            self.__SHAP_analisys.append(shap_model_analisys)
+            
+    @apply_per_grouping        
     def plot_xai_analysis(self,index_to_filter=None,consolidated= False,graph_type_global="summary",graph_type_local="force",show_all_features =True,class_index=0,**kwargs):
         """
         class_index works only lightgbm models, class_index is max value the number of classes in dataset -1.(Eg.: total class = 3, class_index_max=2)
         kwargs use a list to filter by key models to analisys, where each key receives a list of values that will be filtered 
         kwargs params: time, validation, model_name, fold.
         Eg.: fold = [1,2,3]
-        """
-
-        number_class = self.Dataset.get_Y().nunique()
-
-        if number_class <= class_index or class_index < 0:
-             raise Exception("class_index is not valid")
+        """       
 
         models_explained = self.__SHAP_analisys.copy()
 
         kwargs_filtered_models = {key: value for  key, value in kwargs.items() if key not in "graph_params"}
 
         for key, value in kwargs_filtered_models.items():
-            models_explained = filter(lambda x: x[key] in value, models_explained) 
+            models_explained = list(filter(lambda x: x[key] in value, models_explained)) 
         
-        X = self.Dataset.get_X()
+        if not self.data_processor.dataset.has_many_header:
+            X = self.data_processor.dataset.get_X()
 
         kwargs_filtered_graph= {key: value for  key, value in kwargs.items() if key in "graph_params"}
         #plt.switch_backend('agg')
@@ -236,6 +273,9 @@ class AutoBioLearn(ABC):
             models = list(set([x["model_name"] for x in models_explained]))
             
             for model in models:
+                if "section" in kwargs:
+                    X = self.data_processor.dataset.get_X(kwargs["section"])
+
                 shap_values, X_test = XAIHelper.get_consolidate_shap_values(models_explained, model, X, index_to_filter)                
                
                 if index_to_filter is not None:
@@ -247,6 +287,9 @@ class AutoBioLearn(ABC):
 
         else:
             for model_explainable in models_explained:
+                if "section" in model_explainable:
+                    X = self.data_processor.dataset.get_X(model_explainable["section"])
+                    
                 if index_to_filter is not None:
                     if model_explainable["model_name"] == ModelHelper.const_lightboost():
                         XAIHelper.get_graphic_type_local(graph_type_local,model_explainable["expected_value"][class_index],model_explainable["shap_values"][class_index][index_to_filter], \

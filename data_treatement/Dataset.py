@@ -20,19 +20,23 @@ class Dataset:
     def _typesToX(self):
         return ['int64', 'float64','int32']
     
+    def __get_sections(self):
+        if self.has_many_header:
+            self.sections = np.unique(self._data.columns.get_level_values(0).values)
+
     def __init__(self, original_data: DataFrame, target: str, verbose= False):        
       
         DatasetHelper.normalize_columns_name(original_data)
 
         self.__original_data = original_data.copy(deep=True)
-        self._data = original_data.copy(deep=True)
-        self.__target = target
+        self._data = original_data.copy(deep=True)      
         self.has_many_header = isinstance(original_data.columns, pd.MultiIndex)
+        self.__target = self.__find_multiindex(target,1)
         self.sections = []
 
-        if self.has_many_header:
-            self.sections = np.unique(original_data.columns.get_level_values(0).values)            
-            self.__target = self.__find_multiindex(self.__target)
+        self.__get_sections()
+                 
+            
 
         if verbose:
             print("Details of your Database")    
@@ -54,7 +58,6 @@ class Dataset:
 
             #endregion
                 
-
     def data_analysis(self,path_to_save_report=None):
         profile = ProfileReport(self._data, title="Profiling Report")
         report = profile.to_html()
@@ -65,8 +68,6 @@ class Dataset:
             f = open(f"{path_to_save_report}.html", "w")
             f.write(report)
             f.close()
-
-       
 
     def remove_duplicates(self,use_original_data: False):
         if use_original_data:
@@ -98,7 +99,8 @@ class Dataset:
         if show_dropped:
             print(to_drop)
         
-        self._data = self._data.drop(labels=to_drop, axis=axis)  
+        self._data = self._data.drop(labels=to_drop, axis=axis)
+        self.__get_sections()  
 
     def resolve_missing_data(self, startegy='mean' ,use_original_data= False):       
         imputer = SimpleImputer(fill_value=np.nan, startegy=startegy)
@@ -139,24 +141,32 @@ class Dataset:
                 raise AttributeError("method_remove not exists")
    
 
-    def clean_data(self,cols_to_drop:list[str] = [],cols_date:list[str] = [], try_convert_values= False, use_original_data= False):
+    def clean_data(self,cols_to_drop:list[str] = [],cols_date:list[str] = [], cols_levels=0, try_convert_values= False, use_original_data= False):
         if use_original_data:
             self._data = self.__original_data
         
         if cols_to_drop is not None and any(cols_to_drop):
-            self._data.drop(cols_to_drop,axis=1,inplace=True)
+            self._data.drop(cols_to_drop,axis=1,inplace=True,level=cols_levels)
+            self.__get_sections()
 
-        if cols_date is not None and any(cols_date):
+        if cols_date is not None and any(cols_date):             
+            for i in range(len(cols_date)):
+                if isinstance(cols_date[i], str):
+                   cols_date[i]= self.__find_multiindex(cols_date[i], cols_levels)
+                else:
+                    cols_date[i][0]= self.__find_multiindex(cols_date[i][0], cols_levels)
+
             ContentHelper.convert_datetime(self._data,cols_date)
 
         if try_convert_values:
             ContentHelper.try_convert_object_values(self._data)  
 
     def convert_cols_values(self, cols:list[str] = [""] ):
+        cols = [self.__find_multiindex(col,1) for col in cols]
         ContentHelper.convert_cols_values(self._data,cols)
     
     def get_X(self, section: str= None)->DataFrame:
-        if section is None and self.has_many_header:
+        if section is None and not self.has_many_header:
             numeric_cols = [cname for cname in self._data.columns if self._data[cname].dtype in self._typesToX()]
             X = self._data[numeric_cols].copy()
         else:
@@ -186,8 +196,13 @@ class Dataset:
         self._data = imputer.fit_transform(self._data) 
 
 
-    def __find_multiindex(self, col):
-        for idx in self._data.columns:
-            if col in idx:
-                return idx
+    def __find_multiindex(self, col, col_level=0):
+        if isinstance(self._data.columns, pd.MultiIndex):
+            for idx in self._data.columns:       
+                if col in idx[col_level]:
+                    return idx
+        else:
+            for idx in self._data.columns:       
+                if col in idx:
+                    return idx
         return None

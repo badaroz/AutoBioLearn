@@ -19,7 +19,8 @@ class AutoBioLearnClassification(AutoBioLearn):
     def run_models(self, models:list[str]=["xgboost"],  times_repeats:int=10, params={}, section:str=None):       
         
         models_execution = {}
-        self._models_executed = []
+        if not self.data_processor.dataset.has_many_header:
+            self._models_executed = []
         
         for model_name in models:
             models_execution[model_name] = ModelHelper.get_model(model_name, "classifier")      
@@ -63,15 +64,9 @@ class AutoBioLearnClassification(AutoBioLearn):
 
                                 y_pred = model_instance.predict(x_test)
 
-                                model_name_table = f'{model_name}_{str(current_params)}' if len(current_params) >0  else model_name    
-                                self._models_executed.append({"time":i,
-                                                            "validation":validation,
-                                                            "fold":fold,                                                        
-                                                            "model_name":model_name_table,
-                                                            "model":model_instance,
-                                                            "y_pred":y_pred,
-                                                            "y_test":y_test,
-                                                            "x_test_index":test_index })    
+                                model_name_table = f'{model_name}_{str(current_params)}' if len(current_params) >0  else model_name
+                                self._add_model_executed(i,validation, fold, model_name_table,model_instance,y_pred, y_test,test_index, section)    
+                                    
     
     @requires_dataset
     @apply_per_grouping
@@ -96,7 +91,8 @@ class AutoBioLearnClassification(AutoBioLearn):
         except:
             y = self.data_processor.dataset.get_Y()
 
-        self._models_executed = []
+        if not self.data_processor.dataset.has_many_header:
+            self._models_executed = []
 
         for model_name, (model_object, model_params_hidden_verbosity) in models_execution.items():
 
@@ -135,37 +131,50 @@ class AutoBioLearnClassification(AutoBioLearn):
                                 y_pred = model_instance.predict(x_test)
                                 
                                 model_name_table = f'{model_name}_{str(best_params)}' if len(best_params) >0  else model_name
-                                self._models_executed.append({"time":i,
-                                                            "validation":validation,
-                                                            "fold":fold,                                                           
-                                                            "model_name":model_name_table,
-                                                            "model":model_instance,
-                                                            "y_pred":y_pred,
-                                                            "y_test":y_test,  
-                                                            "x_test_index":test_index })     
+                                self._add_model_executed(i,validation, fold, model_name_table,model_instance,y_pred, y_test,test_index, section)     
                                 
-
-    def eval_models(self, metrics: list[str] = ["Recall","Precision","Accuracy","F1","ROC-AUC"]) -> dict:
-        return super().eval_models(metrics)
+    @apply_per_grouping
+    def eval_models(self, metrics: list[str] = ["Recall","Precision","Accuracy","F1","ROC-AUC"], section: str = None) -> dict:
+        return super().eval_models(metrics, section)
 
     def _calculate_metrics(self):
         metrics = []
         for row in self._models_executed:
             y_test = row["y_test"]
             y_pred = row["y_pred"]
-            metrics.append((row["model_name"], row["validation"],row["time"], row["fold"],\
-                                                    precision_score(y_true= y_test,y_pred= y_pred), \
-                                                    accuracy_score(y_true= y_test,y_pred= y_pred), \
-                                                    recall_score(y_true= y_test,y_pred= y_pred), \
-                                                    f1_score(y_true= y_test,y_pred= y_pred), \
-                                                    roc_auc_score(y_true= y_test,y_score= y_pred)))
+            if "section" in row:
+                metrics.append((row["model_name"], row["section"], row["validation"],row["time"], row["fold"],\
+                                                        precision_score(y_true= y_test,y_pred= y_pred), \
+                                                        accuracy_score(y_true= y_test,y_pred= y_pred), \
+                                                        recall_score(y_true= y_test,y_pred= y_pred), \
+                                                        f1_score(y_true= y_test,y_pred= y_pred), \
+                                                        roc_auc_score(y_true= y_test,y_score= y_pred)))
+               
+            else:
+                metrics.append((row["model_name"], row["validation"],row["time"], row["fold"],\
+                                                        precision_score(y_true= y_test,y_pred= y_pred), \
+                                                        accuracy_score(y_true= y_test,y_pred= y_pred), \
+                                                        recall_score(y_true= y_test,y_pred= y_pred), \
+                                                        f1_score(y_true= y_test,y_pred= y_pred), \
+                                                        roc_auc_score(y_true= y_test,y_score= y_pred)))
+        
+        if self.data_processor.dataset.has_many_header:
+            cols_names = ["Model", "Section",
+                            "Validation",\
+                            "Time_of_execution",\
+                            "Fold",\
+                            "Precision","Accuracy",\
+                            "Recall","F1","ROC-AUC"]
+        else:
+           cols_names = ["Model",\
+                        "Validation",\
+                        "Time_of_execution",\
+                        "Fold",\
+                        "Precision","Accuracy",\
+                        "Recall","F1","ROC-AUC"]
       
-        self._Metrics = pd.DataFrame(data = metrics, columns=["Model",\
-                                                              "Validation",\
-                                                              "Time_of_execution",\
-                                                              "Fold",\
-                                                              "Precision","Accuracy",\
-                                                              "Recall","F1","ROC-AUC"])
-    
-    def plot_metrics(self, metrics:list[str]=["Recall","Precision","Accuracy","F1","ROC-AUC"],rot=90, figsize=(12,6), fontsize=20):
-       return super().plot_metrics(metrics = metrics,rot= rot,figsize= figsize, fontsize= fontsize)
+        self._metrics = pd.DataFrame(data = metrics, columns=cols_names)
+        
+    @apply_per_grouping
+    def plot_metrics(self, metrics:list[str]=["Recall","Precision","Accuracy","F1","ROC-AUC"],rot=90, figsize=(12,6), fontsize=20,section: str = None):
+       return super().plot_metrics(metrics = metrics,rot= rot,figsize= figsize, fontsize= fontsize, section= section)

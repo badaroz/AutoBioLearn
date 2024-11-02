@@ -25,12 +25,12 @@ class DataProcessor:
     
     @requires_dataset
     def print_rows_na(self):        
-        self.dataset.print_na(axis=ContentHelper.const_axis_column())
+        self.dataset.print_na(axis=ContentHelper.const_axis_index())
 
     @requires_dataset
-    def remove_cols(self, cols:list[str] = []):      
-        self.Dataset.clean_data(cols_to_drop =cols)
+    def remove_cols(self, cols:list[str] = [], cols_levels=0):      
+        self.dataset.clean_data(cols_to_drop =cols, cols_levels= cols_levels)
 
     @requires_dataset
-    def convert_datetime_to_numerical(self, cols:list[str] = []):  
-        self.dataset.clean_data(cols_date=cols)   
+    def convert_datetime_to_numerical(self, cols:list[str] = [], cols_levels=0):  
+        self.dataset.clean_data(cols_date=cols, cols_levels= cols_levels)   

@@ -32,8 +32,19 @@ def apply_per_section(method):
 def apply_per_grouping(method):
     @wraps(method)
     def wrapper(self, *args, **kwargs):        
-        if self.data_processor.dataset.has_many_header:            
-            for section in self.data_processor.dataset.sections:
-                print(section)
-                result = method(self, *args, **kwargs, section=section)
+        if self.data_processor.dataset.has_many_header:
+            if "section" not in kwargs:
+                results = {}             
+                for section in self.data_processor.dataset.sections:
+                    print(section)
+                    result = method(self, *args, **kwargs, section=section)
+                    if result is not None:
+                        results[section] = result
+                if len(results.keys()) > 0:
+                    return results
+                else:
+                    return
+            else:
+                print(kwargs["section"]) 
+        return method(self, *args, **kwargs)
     return wrapper
