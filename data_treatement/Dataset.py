@@ -55,7 +55,7 @@ class Dataset:
 
             #endregion
                 
-    def data_analysis(self,path_to_save_report=None):
+    def generate_data_report(self,path_to_save_report=None):
         profile = ProfileReport(self._data, title="Profiling Report")
         report = profile.to_html()   
         
@@ -184,7 +184,7 @@ class Dataset:
             
         return self._data[target]
     
-    def input_na(self, method="knn", n_neighbors=5):
+    def impute_cols_na(self, method="knn", n_neighbors=5):
         if method == "knn":
             imputer = KNNImputer(n_neighbors=n_neighbors)            
         else:

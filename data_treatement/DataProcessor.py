@@ -8,7 +8,7 @@ class DataProcessor:
         self.dataset = dataset
 
     @requires_dataset
-    def convert_categorical_to_numerical(self, cols):
+    def encode_categorical(self, cols):
         self.dataset.convert_cols_values(cols)
 
     @requires_dataset
@@ -17,20 +17,20 @@ class DataProcessor:
 
     @requires_dataset
     def drop_rows_na(self, percent=10.0):        
-        self.dataset.drop_na(axis=ContentHelper.const_axis_index(), percent=percent, show_dropped=True)
+        self.dataset.drop_na(axis=ContentHelper.const_axis_row(), percent=percent, show_dropped=True)
     
     @requires_dataset
-    def print_cols_na(self):        
+    def show_cols_na(self):        
         self.dataset.print_na(axis=ContentHelper.const_axis_column())
     
     @requires_dataset
-    def print_rows_na(self):        
-        self.dataset.print_na(axis=ContentHelper.const_axis_index())
+    def show_rows_na(self):        
+        self.dataset.print_na(axis=ContentHelper.const_axis_row())
 
     @requires_dataset
     def remove_cols(self, cols:list[str] = [], cols_levels=0):      
         self.dataset.clean_data(cols_to_drop =cols, cols_levels= cols_levels)
 
     @requires_dataset
-    def convert_datetime_to_numerical(self, cols:list[str] = [], cols_levels=0):  
+    def encode_numerical(self, cols:list[str] = [], cols_levels=0):  
         self.dataset.clean_data(cols_date=cols, cols_levels= cols_levels)   

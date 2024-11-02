@@ -57,7 +57,7 @@ To get started with AutoBioLearn, follow these steps:
 
 ## Prerequisites
 
-- **Python**: Version 3.10 or higher
+- **Python**: Version 3.10.14 or higher
 - **Libraries**: Pandas, Scikit-Learn, NumPy, SHAP, Matplotlib (list other dependencies based on the `requirements.txt` file)
 
 ---
@@ -134,7 +134,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## Authors and Acknowledgments
 
 - **Primary Author**: [Lucas Pinheiro Badaró Moreira](https://github.com/badaroz) - Contact for primary development and design.
-- **Contributors**: List of contributors
+- **Contributors**: [Sérgio Nery Simões](https://github.com/badaroz)
 - **Acknowledgments**: Special thanks to collaborating institutions and funding bodies that supported this work.
 
 ---

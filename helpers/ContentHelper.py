@@ -42,5 +42,5 @@ class ContentHelper(object):
         return 1
     
     @staticmethod
-    def const_axis_index(): 
+    def const_axis_row(): 
         return 0

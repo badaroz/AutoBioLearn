@@ -1,15 +1,22 @@
+from typing import overload
+from typing_extensions import deprecated
 import pandas as pd
 from sklearn.metrics import mean_absolute_percentage_error, mean_squared_error, root_mean_squared_error, r2_score, median_absolute_error
 from sklearn.model_selection import GridSearchCV, ParameterGrid, RandomizedSearchCV
 from AutoBioLearn import AutoBioLearn
-from decorators.DatasetDecorators import apply_per_grouping, requires_dataset
+from decorators import apply_per_grouping, requires_dataset
 from helpers import ModelHelper
 
 
 class AutoBioLearnRegression(AutoBioLearn):
+ 
+    @deprecated("Method will be deprecated, consider using execute_models")
+    def run_models(self, models:list[str]=["xgboost"],  times_repeats:int=10, params={}, section:str=None):
+        self.execute_models(models, times_repeats,params,section)
+
     @requires_dataset
-    @apply_per_grouping
-    def run_models(self, models:list[str]=["xgboost"],  times_repeats:int=10, params={}, section: str=None):
+    @apply_per_grouping  
+    def execute_models(self, models:list[str]=["xgboost"],  times_repeats:int=10, params={}, section:str=None):
 
         models_execution = {}
         if not self.data_processor.dataset.has_many_header:
@@ -59,10 +66,24 @@ class AutoBioLearnRegression(AutoBioLearn):
                                 model_name_table = f'{model_name}_{str(current_params)}' if len(current_params) >0  else model_name
                               
                                 self._add_model_executed(i,validation, fold, model_name_table,model_instance,y_pred, y_test,test_index, section)
-                                
+                           
+
+    @deprecated("Method will be deprecated, consider using execute_models_with_best_model")
+    def run_models_with_best_model(self, models:list[str]=["xgboost"],  
+                                   times_repeats:int=10,
+                                   params={}, 
+                                   params_method="grid",
+                                   section: str=None):
+        
+        self.execute_models_with_best_model(models,times_repeats,params, params_method,section)
+        
     @requires_dataset
-    @apply_per_grouping
-    def run_models_with_best_model(self, models:list[str]=["xgboost"],  times_repeats:int=10,params={}, params_method="grid", section: str = None):
+    @apply_per_grouping   
+    def execute_models_with_best_model(self, models:list[str]=["xgboost"],  
+                                   times_repeats:int=10,
+                                   params={}, 
+                                   params_method="grid",
+                                   section: str=None):
         models_execution = {}
         if not self.data_processor.dataset.has_many_header:
             self._models_executed = []
@@ -116,10 +137,15 @@ class AutoBioLearnRegression(AutoBioLearn):
                                 model_name_table = f'{model_name}_{str(best_params)}' if len(best_params) >0  else model_name
                                 self._add_model_executed(i,validation, fold, model_name_table,model_instance,y_pred, y_test,test_index, section)
 
-    @apply_per_grouping    
+    @apply_per_grouping
+    @deprecated("Method will be deprecated, consider using evaluate_models")
     def eval_models(self, metrics: list[str] = ["MSE","RMSE","R2","MAE","MAPE"], section: str = None) -> dict:
-        return super().eval_models(metrics,section)
+        return super().evaluate_models(metrics,section)
 
+    @apply_per_grouping 
+    def evaluate_models(self, metrics: list[str] = ["MSE","RMSE","R2","MAE","MAPE"], section: str = None) -> dict:
+        return super().evaluate_models(metrics,section)
+        
     def _calculate_metrics(self):
         metrics = []
         for row in self._models_executed:
@@ -160,7 +186,8 @@ class AutoBioLearnRegression(AutoBioLearn):
                         "R2","MAE","MAPE"]
                 
         self._metrics = pd.DataFrame(data = metrics, columns=cols_name)
-    @apply_per_grouping 
+
+    @apply_per_grouping     
     def plot_metrics(self, metrics:list[str]=["MSE","RMSE","R2","MAE","MAPE"],rot=90, figsize=(12,6), fontsize=20,section: str = None):
        return super().plot_metrics(metrics = metrics,rot= rot,figsize= figsize, fontsize= fontsize, section= section)
     

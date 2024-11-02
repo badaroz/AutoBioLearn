@@ -1,9 +1,10 @@
 from abc import ABC, abstractmethod
+from typing_extensions import deprecated
 from matplotlib import pyplot as plt
 from data_treatement import DataProcessor
 
 import pandas as pd
-from decorators.DatasetDecorators import  apply_per_grouping, requires_dataset
+from decorators import apply_per_grouping, requires_dataset
 import shap
 
 from helpers import XAIHelper, ModelHelper
@@ -25,12 +26,12 @@ class AutoBioLearn(ABC):
             self.data_processor = data_processor  
             
     @requires_dataset
-    def data_analysis(self, path_to_save_report=None):        
-        self.data_processor.dataset.data_analysis(path_to_save_report=path_to_save_report)
+    def generate_data_report(self, path_to_save_report=None):        
+        self.data_processor.dataset.generate_data_report(path_to_save_report=path_to_save_report)
 
     @requires_dataset
-    def convert_categorical_to_numerical(self, cols:list[str] = []):
-        self.data_processor.convert_categorical_to_numerical(cols)
+    def encode_categorical(self, cols:list[str] = []):
+        self.data_processor.encode_categorical(cols)
 
     @requires_dataset
     def drop_cols_na(self, percent=30.0):
@@ -41,12 +42,12 @@ class AutoBioLearn(ABC):
         self.data_processor.drop_rows_na(percent)
 
     @requires_dataset
-    def print_cols_na(self):
-        self.data_processor.print_cols_na()
+    def show_cols_na(self):
+        self.data_processor.show_cols_na()
     
     @requires_dataset  
-    def print_rows_na(self):       
-        self.data_processor.print_rows_na()
+    def show_rows_na(self):       
+        self.data_processor.show_rows_na()
 
     @requires_dataset
     def remove_cols(self, cols:list[str] = [], cols_levels= 0):
@@ -56,12 +57,13 @@ class AutoBioLearn(ABC):
     def remove_duplicates(self):      
         self.data_processor.dataset.remove_duplicates()
 
-    def convert_datetime_to_numerical(self, cols:list[str] = [], cols_levels= 0):
-        self.data_processor.convert_datetime_to_numerical(cols, cols_levels= cols_levels)
+    @requires_dataset
+    def encode_numerical(self, cols:list[str] = [], cols_levels= 0):
+        self.data_processor.encode_numerical(cols, cols_levels= cols_levels)
 
     @requires_dataset    
-    def input_na(self,method="knn"):       
-        self.data_processor.dataset.input_na(method=method)
+    def impute_cols_na(self,method="knn"):       
+        self.data_processor.dataset.impute_cols_na(method=method)
 
     def set_validations(self, validations:list[str]=["split"], params ={}):
         self._validations_execution= {}     
@@ -72,11 +74,15 @@ class AutoBioLearn(ABC):
             self._validations_execution[validation] =  { 'validation': validation_object, 'num_folds': validation_params["num_folds"],'train_size':validation_params["train_size"]}
                 
     @abstractmethod
-    def run_models(self, models:list[str]=["xgboost"],  times_repeats:int=10, params={}, section:str=None):
+    def execute_models(self, models:list[str]=["xgboost"],  times_repeats:int=10, params={}, section:str=None):
         return
     
     @abstractmethod
-    def run_models_with_best_model(self, models:list[str]=["xgboost"], times_repeats:int=10,params={}, params_method="grid"):
+    def execute_models_with_best_model(self, models:list[str]=["xgboost"],  
+                                   times_repeats:int=10,
+                                   params={}, 
+                                   params_method="grid",
+                                   section: str=None):
        return   
 
     def _add_model_executed(self ,time: int,validation: str, fold: int,                                                         
@@ -117,7 +123,7 @@ class AutoBioLearn(ABC):
         clf_grid.fit(X, y)
         return clf_grid.best_params_
 
-    def eval_models(self, metrics:list[str]=[], section: str = None)-> dict:
+    def evaluate_models(self, metrics:list[str]=[], section: str = None)-> dict:
         if not hasattr(self, '_metrics'):
             self._calculate_metrics()
 
@@ -161,40 +167,9 @@ class AutoBioLearn(ABC):
             axes.get_figure().suptitle('Boxplots of %s metric' % (metric),
                         fontsize=fontsize)
             #axes.get_figure().show()
-            plt.show()
-            
+            plt.show()  
 
-    
-    def run_xai_analysis(self,time=None,validation=None,fold=None,model=None):
-        models_explained = self._models_executed.copy()
-
-        if time is not None:
-            models_explained = filter(lambda x: x["time"] in time, models_explained)
-        
-        if validation is not None:
-            models_explained = filter(lambda x: x["validation"] in validation, models_explained)
-        
-        if fold is not None:
-            models_explained = filter(lambda x: x["fold"] in fold, models_explained)
-        
-        if model is not None:
-            models_explained = filter(lambda x: x["model_name"] in model, models_explained)
-        
-        self.__SHAP_analisys = []      
-        for model in models_explained:
-            explainer = shap.TreeExplainer(model["model"])
-            shap_values = explainer.shap_values(model["x_test"])
-            shap_obj    = explainer(model["x_test"])
-            expected_value = explainer.expected_value
-            self.__SHAP_analisys.append({"time":model["time"],
-                                        "validation":model["validation"],
-                                        "fold":model["fold"],
-                                        "model_name":model["model_name"],
-                                        "shap_obj": shap_obj,
-                                        "shap_values": shap_values})
-            
-    
-    def run_xai_analysis_v2(self,**kwargs):
+    def generate_shap_analysis(self,**kwargs):
         """
         kwargs use a list to filter by key models to analisys, where each key receives a list of values that will be filtered 
         kwargs params: time, validation, model_name, fold.
@@ -246,9 +221,9 @@ class AutoBioLearn(ABC):
             shap_model_analisys["expected_value_consolidated"]=expected_value_consolidated  
             
             self.__SHAP_analisys.append(shap_model_analisys)
-            
+        
     @apply_per_grouping        
-    def plot_xai_analysis(self,index_to_filter=None,consolidated= False,graph_type_global="summary",graph_type_local="force",show_all_features =True,class_index=0,**kwargs):
+    def plot_shap_analysis(self,index_to_filter=None,consolidated= False,graph_type_global="summary",graph_type_local="force",show_all_features =True,class_index=0,**kwargs):
         """
         class_index works only lightgbm models, class_index is max value the number of classes in dataset -1.(Eg.: total class = 3, class_index_max=2)
         kwargs use a list to filter by key models to analisys, where each key receives a list of values that will be filtered 
@@ -302,4 +277,39 @@ class AutoBioLearn(ABC):
                     XAIHelper.get_graphic_type_global(graph_type_global,model_explainable["shap_values"],X,kwargs_filtered_graph, show_all_features=show_all_features)
                  
                
-         
+#region Deprecated
+
+    @requires_dataset
+    @deprecated("Method will be deprecated, consider using generate_data_report")
+    def data_analysis(self, path_to_save_report=None):
+        self.data_processor.dataset.generate_data_report(path_to_save_report=path_to_save_report)
+
+    @requires_dataset
+    @deprecated("Method will be deprecated, consider using encode_categorical")
+    def encode_categorical(self, cols:list[str] = []):
+        self.data_processor.encode_categorical(cols)
+    
+    @requires_dataset
+    @deprecated("Method will be deprecated, consider using show_cols_na")
+    def print_cols_na(self):
+        self.data_processor.show_cols_na()
+    
+    @requires_dataset
+    @deprecated("Method will be deprecated, consider using show_rows_na")  
+    def print_rows_na(self):       
+        self.data_processor.show_rows_na()
+
+    @requires_dataset
+    @deprecated("Method will be deprecated, consider using encode_numerical")  
+    def convert_datetime_to_numerical(self, cols:list[str] = [], cols_levels= 0):
+        self.data_processor.encode_numerical(cols, cols_levels= cols_levels)    
+
+    @deprecated("Method will be deprecated, consider using generate_shap_analysis")  
+    def run_xai_analysis(self,**kwargs):
+        self.generate_shap_analysis(**kwargs)
+
+    @apply_per_grouping
+    @deprecated("Method will be deprecated, consider using plot_shap_analysis")        
+    def plot_xai_analysis(self,index_to_filter=None,consolidated= False,graph_type_global="summary",graph_type_local="force",show_all_features =True,class_index=0,**kwargs):
+        self.plot_shap_analysis(index_to_filter, consolidated,graph_type_global,graph_type_local,show_all_features,class_index,**kwargs)
+#endregion
