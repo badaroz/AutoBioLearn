@@ -11,9 +11,6 @@ import numpy as np
 from helpers.DatasetHelper import DatasetHelper
 from helpers.ContentHelper import ContentHelper
 
-from IPython.display import display, HTML
-
-
 from sklearn.impute import KNNImputer, SimpleImputer
 class Dataset:
 
@@ -60,14 +57,14 @@ class Dataset:
                 
     def data_analysis(self,path_to_save_report=None):
         profile = ProfileReport(self._data, title="Profiling Report")
-        report = profile.to_html()
-        
-        display(HTML(report))
+        report = profile.to_html()   
         
         if path_to_save_report is not None:
             f = open(f"{path_to_save_report}.html", "w")
             f.write(report)
             f.close()
+        
+        return profile.to_notebook_iframe()
 
     def remove_duplicates(self,use_original_data: False):
         if use_original_data:

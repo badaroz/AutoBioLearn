@@ -10,6 +10,8 @@ Note - AutoBioLearn is still under development - we cannot guarantee full functi
 
 To make it easier to configure the environment, a file has been made available with the libraries needed for requirements file, which can be found here
 to install command `pip install -r requirements.txt`
+# Possible error
+If run data_analisys before plot SHAP results and models metrics comparations, include command `%matplotlib inline` before import **AutoBioLearn** package
 # Examples
 Examples can find in examples folder
 # Dependency libraries
@@ -21,3 +23,4 @@ catboost==1.2.3
 lightgbm==4.5.0
 shap==0.42.1
 imbalanced-learn==0.12.4
+ipywidgets==8.1.2

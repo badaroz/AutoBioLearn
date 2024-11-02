@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
 from matplotlib import pyplot as plt
-from matplotlib.pylab import f
 from data_treatement import DataProcessor
 
 import pandas as pd
