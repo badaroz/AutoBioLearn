@@ -1,3 +1,4 @@
+from typing import overload
 from pandas import DataFrame
 from data_treatement.DatasetByFile import DatasetByFile
 
@@ -5,9 +6,11 @@ from data_treatement.DatasetByFile import DatasetByFile
 class DatasetCustomAnalysis(DatasetByFile):
     def __init__(self, file_path: str, groups:dict,delimiter: None, verbose=False):
         super().__init__(file_path,"",delimiter,verbose)
-        self.sections = groups.keys()
-        self.has_many_header = len(groups.keys()) > 0
+        self._sections = groups.keys()
+        self._has_many_header = len(groups.keys()) > 0
 
+
+    @overload
     def get_X(self, section:str= None)->DataFrame:
         cols_names =self.groups[section]["x_cols_names"]
        
@@ -19,7 +22,12 @@ class DatasetCustomAnalysis(DatasetByFile):
             return X 
         else:
             return X.drop([target],axis=1,inplace=False)
-    
+        
+    @overload
+    def _set_sections(self):
+        pass
+
+    @overload
     def get_Y(self):
         pass
 

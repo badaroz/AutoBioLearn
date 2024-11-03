@@ -131,7 +131,7 @@ class AutoBioLearn(ABC):
 
         section_metrics = self._metrics
 
-        if section is not None and self.data_processor.dataset.has_many_header:
+        if section is not None and self.data_processor.dataset.get_has_many_header():
             section_metrics = self._metrics[self._metrics["Section"] == section]
 
         for metric in metrics:
@@ -148,7 +148,7 @@ class AutoBioLearn(ABC):
 
         section_metrics = self._metrics
         
-        if section is not None and self.data_processor.dataset.has_many_header:
+        if section is not None and self.data_processor.dataset.get_has_many_header():
             section_metrics = self._metrics[self._metrics["Section"] == section]
 
         for metric in metrics:                
@@ -182,7 +182,7 @@ class AutoBioLearn(ABC):
         
         self.__SHAP_analisys = []
 
-        if not self.data_processor.dataset.has_many_header:
+        if not self.data_processor.dataset.get_has_many_header():
             x = self.data_processor.dataset.get_X()
 
         for model in models_explained:           
@@ -238,7 +238,7 @@ class AutoBioLearn(ABC):
         for key, value in kwargs_filtered_models.items():
             models_explained = list(filter(lambda x: x[key] in value, models_explained)) 
         
-        if not self.data_processor.dataset.has_many_header:
+        if not self.data_processor.dataset.get_has_many_header():
             X = self.data_processor.dataset.get_X()
 
         kwargs_filtered_graph= {key: value for  key, value in kwargs.items() if key in "graph_params"}

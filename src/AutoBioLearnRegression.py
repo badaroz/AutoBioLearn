@@ -19,7 +19,7 @@ class AutoBioLearnRegression(AutoBioLearn):
     def execute_models(self, models:list[str]=["xgboost"],  times_repeats:int=10, params={}, section:str=None):
 
         models_execution = {}
-        if not self.data_processor.dataset.has_many_header:
+        if not self.data_processor.dataset.get_has_many_header():
             self._models_executed = []
 
         x = self.data_processor.dataset.get_X(section)
@@ -85,7 +85,7 @@ class AutoBioLearnRegression(AutoBioLearn):
                                    params_method="grid",
                                    section: str=None):
         models_execution = {}
-        if not self.data_processor.dataset.has_many_header:
+        if not self.data_processor.dataset.get_has_many_header():
             self._models_executed = []
         
         if params_method == 'random':
@@ -167,7 +167,7 @@ class AutoBioLearnRegression(AutoBioLearn):
                                                         median_absolute_error(y_true= y_test,y_pred= y_pred), \
                                                         mean_absolute_percentage_error(y_true= y_test,y_pred= y_pred)))
         
-        if self.data_processor.dataset.has_many_header:
+        if self.data_processor.dataset.get_has_many_header():
              cols_name =["Model", \
                          "Section", \
                         "Validation", \

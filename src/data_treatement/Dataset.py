@@ -13,27 +13,18 @@ from helpers.ContentHelper import ContentHelper
 
 from sklearn.impute import KNNImputer, SimpleImputer
 class Dataset:
-
-    def _typesToX(self):
-        return ['int64', 'float64','int32']
     
-    def __get_sections(self):
-        if self.has_many_header:
-            self.sections = np.unique(self._data.columns.get_level_values(0).values)
-
     def __init__(self, original_data: DataFrame, target: str, verbose= False):        
       
         DatasetHelper.normalize_columns_name(original_data)
 
         self.__original_data = original_data.copy(deep=True)
         self._data = original_data.copy(deep=True)      
-        self.has_many_header = isinstance(original_data.columns, pd.MultiIndex)
+        self._has_many_header = isinstance(original_data.columns, pd.MultiIndex)
         self.__target = self.__find_multiindex(target,1)
-        self.sections = []
+        self._sections = []
 
-        self.__get_sections()
-                 
-            
+        self._set_sections()    
 
         if verbose:
             print("Details of your Database")    
@@ -66,6 +57,19 @@ class Dataset:
         
         return profile.to_notebook_iframe()
 
+    def _typesToX(self):
+        return ['int64', 'float64','int32']
+    
+    def _set_sections(self):
+        if self._has_many_header:
+            self._sections = np.unique(self._data.columns.get_level_values(0).values)   
+    
+    def get_has_many_header(self)-> bool:
+        return self._has_many_header
+    
+    def get_sections(self)-> list:
+        return self._sections
+
     def remove_duplicates(self,use_original_data: False):
         if use_original_data:
             self._data = self.__original_data.drop_duplicates(ignore_index=True)
@@ -97,7 +101,7 @@ class Dataset:
             print(to_drop)
         
         self._data = self._data.drop(labels=to_drop, axis=axis)
-        self.__get_sections()  
+        self._set_sections()  
 
     def resolve_missing_data(self, startegy='mean' ,use_original_data= False):       
         imputer = SimpleImputer(fill_value=np.nan, startegy=startegy)
@@ -144,7 +148,7 @@ class Dataset:
         
         if cols_to_drop is not None and any(cols_to_drop):
             self._data.drop(cols_to_drop,axis=1,inplace=True,level=cols_levels)
-            self.__get_sections()
+            self._set_sections()
 
         if cols_date is not None and any(cols_date):             
             for i in range(len(cols_date)):
@@ -163,7 +167,7 @@ class Dataset:
         ContentHelper.convert_cols_values(self._data,cols)
     
     def get_X(self, section: str= None)->DataFrame:
-        if section is None and not self.has_many_header:
+        if section is None and not self._has_many_header:
             numeric_cols = [cname for cname in self._data.columns if self._data[cname].dtype in self._typesToX()]
             X = self._data[numeric_cols].copy()
         else:

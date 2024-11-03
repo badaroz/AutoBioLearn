@@ -25,7 +25,7 @@ class AutoBioLearnClassification(AutoBioLearn):
     def execute_models(self, models:list[str]=["xgboost"],  times_repeats:int=10, params={}, section:str=None):       
         
         models_execution = {}
-        if not self.data_processor.dataset.has_many_header:
+        if not self.data_processor.dataset.get_has_many_header():
             self._models_executed = []
         
         for model_name in models:
@@ -106,7 +106,7 @@ class AutoBioLearnClassification(AutoBioLearn):
         except:
             y = self.data_processor.dataset.get_Y()
 
-        if not self.data_processor.dataset.has_many_header:
+        if not self.data_processor.dataset.get_has_many_header():
             self._models_executed = []
 
         for model_name, (model_object, model_params_hidden_verbosity) in models_execution.items():
@@ -178,7 +178,7 @@ class AutoBioLearnClassification(AutoBioLearn):
                                                         f1_score(y_true= y_test,y_pred= y_pred), \
                                                         roc_auc_score(y_true= y_test,y_score= y_pred)))
         
-        if self.data_processor.dataset.has_many_header:
+        if self.data_processor.dataset.get_has_many_header():
             cols_names = ["Model", "Section",
                             "Validation",\
                             "Time_of_execution",\
