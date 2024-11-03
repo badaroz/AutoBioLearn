@@ -1,11 +1,10 @@
 from abc import ABC, abstractmethod
 from typing_extensions import deprecated
 from matplotlib import pyplot as plt
-from data_treatement import DataProcessor
+from data_treatment import DataProcessor
 
 import pandas as pd
 from decorators import apply_per_grouping, requires_dataset
-import shap
 
 from helpers import XAIHelper, ModelHelper
 
@@ -68,7 +67,7 @@ class AutoBioLearn(ABC):
     def set_validations(self, validations:list[str]=["split"], params ={}):
         self._validations_execution= {}     
 
-        for validation in validations:
+        for validation in set(validations):
             validation_object = ModelHelper.get_validations(validation)
             validation_params = ModelHelper.get_model_params(validation,params)
             self._validations_execution[validation] =  { 'validation': validation_object, 'num_folds': validation_params["num_folds"],'train_size':validation_params["train_size"]}

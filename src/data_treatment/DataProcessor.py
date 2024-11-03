@@ -1,4 +1,4 @@
-from data_treatement import Dataset
+from data_treatment import Dataset
 from decorators.DatasetDecorators import requires_dataset
 from helpers.ContentHelper import ContentHelper
 

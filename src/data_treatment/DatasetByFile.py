@@ -1,7 +1,7 @@
 import os
 import pandas as pd
 from pandas import DataFrame
-from data_treatement.Dataset import Dataset
+from data_treatment.Dataset import Dataset
 
 class DatasetByFile(Dataset):
     def __init__(self, file_path:str, target: str, delimiter: None, verbose=False, header_size=1):

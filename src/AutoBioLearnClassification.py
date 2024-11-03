@@ -1,4 +1,3 @@
-from typing import overload
 from typing_extensions import deprecated
 import pandas as pd
 from sklearn.metrics import f1_score, precision_score, recall_score, roc_auc_score,accuracy_score
@@ -13,7 +12,7 @@ class AutoBioLearnClassification(AutoBioLearn):
         self.__balancing = False
         super().__init__()
 
-    def set_balacing(self, balancing:bool)-> None:
+    def set_balancing(self, balancing:bool)-> None:
         self.__balancing = balancing
           
     @deprecated("Method will be deprecated, consider using execute_models")

@@ -1,5 +1,5 @@
 import requests
-from data_treatement.Dataset import Dataset
+from data_treatment.Dataset import Dataset
 import pandas as pd
 
 

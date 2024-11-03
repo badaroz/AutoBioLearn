@@ -1,4 +1,3 @@
-from typing import overload
 from typing_extensions import deprecated
 import pandas as pd
 from sklearn.metrics import mean_absolute_percentage_error, mean_squared_error, root_mean_squared_error, r2_score, median_absolute_error

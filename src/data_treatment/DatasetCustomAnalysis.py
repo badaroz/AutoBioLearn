@@ -1,6 +1,6 @@
 from typing import overload
 from pandas import DataFrame
-from data_treatement.DatasetByFile import DatasetByFile
+from data_treatment.DatasetByFile import DatasetByFile
 
 
 class DatasetCustomAnalysis(DatasetByFile):
