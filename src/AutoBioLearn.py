@@ -286,7 +286,7 @@ class AutoBioLearn(ABC):
 
     @requires_dataset
     @deprecated("Method will be deprecated, consider using encode_categorical")
-    def encode_categorical(self, cols:list[str] = []):
+    def convert_categorical_to_numerical(self, cols:list[str] = []):
         self.data_processor.encode_categorical(cols)
     
     @requires_dataset

@@ -12,7 +12,7 @@ AutoBioLearn is an automated framework designed to streamline machine learning (
 
 ## Visual Demo (Optional)
 
-<img src='./images/workflow_AutoBioLearn.png' width=60%>
+<img src='./src/images/workflow_AutoBioLearn.png' width=60%>
 
 ---
 
@@ -67,21 +67,25 @@ To get started with AutoBioLearn, follow these steps:
 Here’s a basic example of how to use AutoBioLearn for a classification task:
 
 1. **Load and Preprocess Data**:
-   ```python
-   from autobiolearn import AutoBioLearn
+   ```python   
+   from AutoBioLearnClassification import AutoBioLearnClassification
+   from data_treatement import DataProcessor, DatasetByFile
+   pipeline = AutoBioLearnClassification()
 
    # Initialize the framework with your dataset
-   pipeline = AutoBioLearn(dataset="path_to_your_dataset.csv")
+   dataset= DatasetByFile(file_path="path_to_your_dataset.csv",target="target_variable",delimiter=',')
+   data_processor = DataProcessor(dataset)
+   pipeline.get_dataset(data_processor= data_processor)
    ```
 
 2. **Run the ML Pipeline**:
    ```python
-   pipeline.run_classification(target="target_variable")
+   pipeline.execute_models(models=['xgboost','catboost'])
    ```
 
 3. **Visualize Results**:
    ```python
-   pipeline.visualize_results(metrics=['F1-score', 'ROC-AUC'])
+   pipeline.plot_metrics(metrics=['F1-score', 'ROC-AUC'])
    ```
 
 AutoBioLearn also supports additional configuration options, including specifying hyperparameters, model selection, and visualizing SHAP explanations. 
