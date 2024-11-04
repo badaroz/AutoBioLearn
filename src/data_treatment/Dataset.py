@@ -162,7 +162,7 @@ class Dataset:
         if try_convert_values:
             ContentHelper.try_convert_object_values(self._data)  
 
-    def convert_cols_values(self, cols:list[str] = [""] ):
+    def encode_categorical(self, cols:list[str] = [""] ):
         cols = [self.__find_multiindex(col,1) for col in cols]
         ContentHelper.convert_cols_values(self._data,cols)
     
@@ -184,7 +184,7 @@ class Dataset:
     
     def _get_Y(self, target)->DataFrame:
         if self._data[target].dtype not in self._typesToX():
-            self.convert_cols_values([target])
+            self.encode_categorical([target])
             
         return self._data[target]
     

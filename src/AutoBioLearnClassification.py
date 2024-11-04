@@ -26,8 +26,9 @@ class AutoBioLearnClassification(AutoBioLearn):
         models_execution = {}
         if not self.data_processor.dataset.get_has_many_header():
             self._models_executed = []
-        
-        for model_name in models:
+
+        unique_models = set(models)
+        for model_name in unique_models:
             models_execution[model_name] = ModelHelper.get_model(model_name, "classifier")      
 
         x = self.data_processor.dataset.get_X(section)
@@ -96,7 +97,8 @@ class AutoBioLearnClassification(AutoBioLearn):
         else:
             model_gen = GridSearchCV
 
-        for model_name in models:
+        unique_models = set(models)
+        for model_name in unique_models:
             models_execution[model_name] = ModelHelper.get_model(model_name, "classifier")      
 
         x = self.data_processor.dataset.get_X(section)

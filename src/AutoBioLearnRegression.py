@@ -27,8 +27,8 @@ class AutoBioLearnRegression(AutoBioLearn):
         except:
             y = self.data_processor.dataset.get_Y()
 
-
-        for model_name in models:
+        unique_models = set(models)
+        for model_name in unique_models:
             models_execution[model_name] = ModelHelper.get_model(model_name, "regressor")
             
         for model_name, (model_object, model_params_hidden_verbosity) in models_execution.items():
@@ -92,7 +92,8 @@ class AutoBioLearnRegression(AutoBioLearn):
         else:
             model_gen = GridSearchCV
 
-        for model_name in models:
+        unique_models = set(models)
+        for model_name in unique_models:
             models_execution[model_name] = ModelHelper.get_model(model_name, "regressor")
 
         x = self.data_processor.dataset.get_X(section)

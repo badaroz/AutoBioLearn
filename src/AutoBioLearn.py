@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from concurrent.futures import ThreadPoolExecutor
 from typing_extensions import deprecated
 from matplotlib import pyplot as plt
 from data_treatment import DataProcessor
@@ -29,8 +30,15 @@ class AutoBioLearn(ABC):
         self.data_processor.dataset.generate_data_report(path_to_save_report=path_to_save_report)
 
     @requires_dataset
-    def encode_categorical(self, cols:list[str] = []):
-        self.data_processor.encode_categorical(cols)
+    def encode_categorical(self, cols:list[str] = [], parallel: bool = False):
+        def process_column(col):           
+            self.data_processor.encode_categorical([col])
+            
+        if parallel:
+            with ThreadPoolExecutor() as executor:
+                executor.map(process_column, cols)
+        else:
+            self.data_processor.encode_categorical(cols)
 
     @requires_dataset
     def drop_cols_na(self, percent=30.0):
@@ -57,8 +65,15 @@ class AutoBioLearn(ABC):
         self.data_processor.dataset.remove_duplicates()
 
     @requires_dataset
-    def encode_numerical(self, cols:list[str] = [], cols_levels= 0):
-        self.data_processor.encode_numerical(cols, cols_levels= cols_levels)
+    def encode_datetime(self, cols:list[str] = [], cols_levels= 0, parallel: bool = False):
+        def process_column(col):               
+            self.data_processor.encode_datetime([col], cols_levels= cols_levels)
+            
+        if parallel:
+            with ThreadPoolExecutor() as executor:
+                executor.map(process_column, cols)
+        else:
+            self.data_processor.encode_datetime(cols, cols_levels= cols_levels)
 
     @requires_dataset    
     def impute_cols_na(self,method="knn"):       
@@ -67,7 +82,9 @@ class AutoBioLearn(ABC):
     def set_validations(self, validations:list[str]=["split"], params ={}):
         self._validations_execution= {}     
 
-        for validation in set(validations):
+        unique_validations = set(validations)
+
+        for validation in unique_validations:
             validation_object = ModelHelper.get_validations(validation)
             validation_params = ModelHelper.get_model_params(validation,params)
             self._validations_execution[validation] =  { 'validation': validation_object, 'num_folds': validation_params["num_folds"],'train_size':validation_params["train_size"]}
@@ -301,7 +318,7 @@ class AutoBioLearn(ABC):
     @requires_dataset
     @deprecated("Method will be deprecated, consider using encode_numerical")  
     def convert_datetime_to_numerical(self, cols:list[str] = [], cols_levels= 0):
-        self.data_processor.encode_numerical(cols, cols_levels= cols_levels)    
+        self.data_processor.encode_datetime(cols, cols_levels= cols_levels)    
 
     @deprecated("Method will be deprecated, consider using generate_shap_analysis")  
     def run_xai_analysis(self,**kwargs):

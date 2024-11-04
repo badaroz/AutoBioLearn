@@ -9,7 +9,7 @@ class DataProcessor:
 
     @requires_dataset
     def encode_categorical(self, cols):
-        self.dataset.convert_cols_values(cols)
+        self.dataset.encode_categorical(cols)
 
     @requires_dataset
     def drop_cols_na(self, percent=30.0):
@@ -32,5 +32,5 @@ class DataProcessor:
         self.dataset.clean_data(cols_to_drop =cols, cols_levels= cols_levels)
 
     @requires_dataset
-    def encode_numerical(self, cols:list[str] = [], cols_levels=0):  
+    def encode_datetime(self, cols:list[str] = [], cols_levels=0):  
         self.dataset.clean_data(cols_date=cols, cols_levels= cols_levels)   
