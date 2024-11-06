@@ -44,7 +44,33 @@ class XAIHelper(object):
         return shap_values, X_test
     
     @staticmethod
-    def get_graphic_type_local(graph_type, expected_value,shap_values,X,params, show_all_features = True):
+    def get_consolidate_shap_values_lightboost(models_explained, model, X, class_index,index_to_filter)-> tuple[np.ndarray, pd.DataFrame]:
+        models_SHAP_Analisys = list(filter(lambda x: x["model_name"] in model, models_explained))
+        
+        if index_to_filter is not None:
+            shap_values = np.array(models_SHAP_Analisys[0]["shap_values_consolidated"][class_index][index_to_filter])
+            test_set = models_SHAP_Analisys[0]["x_test_index"][index_to_filter]
+        else:
+            test_set = models_SHAP_Analisys[0]["x_test_index"]
+            shap_values = np.array(models_SHAP_Analisys[0]["shap_values_consolidated"][class_index])
+                
+        for i in range(1,len(models_SHAP_Analisys)):
+            if index_to_filter is not None:                
+                shap_values = np.concatenate((shap_values,np.array(models_SHAP_Analisys[i]["shap_values_consolidated"][class_index][index_to_filter])),axis=0)
+                test_set    = np.concatenate((test_set,models_SHAP_Analisys[i]["x_test_index"][index_to_filter]),axis=0)
+            else:
+                shap_values = np.concatenate((shap_values,np.array(models_SHAP_Analisys[i]["shap_values_consolidated"][class_index])),axis=0)
+                test_set    = np.concatenate((test_set,models_SHAP_Analisys[i]["x_test_index"]),axis=0)
+        
+       
+        #shap_values = np.concatenate((shap_values,np.array(list_shap_values[i])),axis=0)
+    
+        X_test = pd.DataFrame(X.iloc[test_set],columns=X.columns)
+
+        return shap_values, X_test
+
+    @staticmethod
+    def get_chart_type_local(graph_type, expected_value,shap_values,X,params, show_all_features = True):
             max_features = XAIHelper.default_max_features()
 
             if(show_all_features):
@@ -64,7 +90,7 @@ class XAIHelper(object):
             plt.show()
 
     @staticmethod
-    def get_graphic_type_global(graph_type,shap_values,X,params, show_all_features = True):
+    def get_chart_type_global(graph_type,shap_values,X,params, show_all_features = True):
             max_features = XAIHelper.default_max_features()
 
             if(show_all_features):

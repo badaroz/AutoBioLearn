@@ -1,3 +1,4 @@
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing_extensions import deprecated
 import pandas as pd
 from sklearn.metrics import mean_absolute_percentage_error, mean_squared_error, root_mean_squared_error, r2_score, median_absolute_error
@@ -16,44 +17,44 @@ class AutoBioLearnRegression(AutoBioLearn):
     @requires_dataset
     @apply_per_grouping  
     def execute_models(self, models:list[str]=["xgboost"],  times_repeats:int=10, params={}, section:str=None):
-
+         
         models_execution = {}
         if not self.data_processor.dataset.get_has_many_header():
             self._models_executed = []
+
+        unique_models = set(models)
+        for model_name in unique_models:
+            models_execution[model_name] = ModelHelper.get_model(model_name, "regressor")      
 
         x = self.data_processor.dataset.get_X(section)
         try:
             y = self.data_processor.dataset.get_Y(section)
         except:
-            y = self.data_processor.dataset.get_Y()
-
-        unique_models = set(models)
-        for model_name in unique_models:
-            models_execution[model_name] = ModelHelper.get_model(model_name, "regressor")
-            
-        for model_name, (model_object, model_params_hidden_verbosity) in models_execution.items():
+            y = self.data_processor.dataset.get_Y()       
+        
+        def train_test_validation(model_execution):
+            executed = []               
+            model_name=model_execution[0] 
+            model_object, model_params_hidden_verbosity = model_execution[1]
 
             model_params = ModelHelper.get_model_params(model_name,params)       
             combination_params = ParameterGrid(model_params)
-            
-            for current_params in combination_params:
                 
-                for i in range(times_repeats):
-                
+            for current_params in combination_params:                
+                for i in range(times_repeats):                
                         for validation, validation_params in self._validations_execution.items():  
-                           
-                            ix_list = ModelHelper.initialize_validation(validation_params['validation'],    \
-                                                                        validation_params['num_folds'],     \
-                                                                        validation_params['train_size'],    \
-                                                                        x,y)
+                        
+                            ix_list = ModelHelper.initialize_validation(validation_params['validation'], \
+                                                                        validation_params['num_folds'],  \
+                                                                        validation_params['train_size'], \
+                                                                        x, y)
 
                             for fold, (train_index, test_index) in enumerate(ix_list):
                                 x_train = x.iloc[train_index]
                                 y_train = y.iloc[train_index]
                                 x_test = x.iloc[test_index]
-                                y_test = y.iloc[test_index]
-                                
-                              
+                                y_test = y.iloc[test_index]    
+
                                 model_instance = model_object()
                                 merged_params = {**current_params, **model_params_hidden_verbosity}
 
@@ -61,10 +62,31 @@ class AutoBioLearnRegression(AutoBioLearn):
                                 model_instance.fit(x_train, y_train)                                 
 
                                 y_pred = model_instance.predict(x_test)
+                                
+                                instance = {"time":i,
+                                            "validation":validation,
+                                            "fold":fold,
+                                            "model":model_instance,
+                                            "y_pred":y_pred,
+                                            "y_test":y_test,
+                                            "x_test_index":test_index }
+        
+                                if section:
+                                    instance["section"] = section
+                                executed.append(instance)
+            return executed         
 
-                                model_name_table = f'{model_name}_{str(current_params)}' if len(current_params) >0  else model_name
-                              
-                                self._add_model_executed(i,validation, fold, model_name_table,model_instance,y_pred, y_test,test_index, section)
+        with ThreadPoolExecutor() as executor:
+            future_to_model = {executor.submit(train_test_validation, models_to_execute): models_to_execute[0] for models_to_execute in models_execution.items()}
+
+            for future in as_completed(future_to_model):
+                model_name = future_to_model[future]
+                try:
+                    models_executed = future.result()
+                    for model in models_executed:
+                        self._add_model_executed(model["time"],model["validation"], model["fold"], model_name,model["model"],model["y_pred"], model["y_test"],model["x_test_index"], section)
+                except Exception:
+                   pass
                            
 
     @deprecated("Method will be deprecated, consider using execute_models_with_best_model")

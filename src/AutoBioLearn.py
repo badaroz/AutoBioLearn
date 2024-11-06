@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing_extensions import deprecated
 from matplotlib import pyplot as plt
 from data_treatment import DataProcessor
@@ -105,13 +105,13 @@ class AutoBioLearn(ABC):
                             model_name: str, model,y_pred, y_test, x_test_index, section= None):
         
         instance = {"time":time,
-                                                            "validation":validation,
-                                                            "fold":fold,                                                        
-                                                            "model_name":model_name,
-                                                            "model":model,
-                                                            "y_pred":y_pred,
-                                                            "y_test":y_test,
-                                                            "x_test_index":x_test_index }
+                    "validation":validation,
+                    "fold":fold,                                                        
+                    "model_name":model_name,
+                    "model":model,
+                    "y_pred":y_pred,
+                    "y_test":y_test,
+                    "x_test_index":x_test_index }
         
         if section:
            instance["section"] = section 
@@ -161,6 +161,8 @@ class AutoBioLearn(ABC):
         return
     
     def plot_metrics(self, metrics:list[str]=[],rot=90, figsize=(12,6), fontsize=20, section: str = None ):
+        if not hasattr(self, '_metrics'):
+            self._calculate_metrics()
 
         section_metrics = self._metrics
         
@@ -198,32 +200,32 @@ class AutoBioLearn(ABC):
         
         self.__SHAP_analisys = []
 
+        x : pd.DataFrame = None
         if not self.data_processor.dataset.get_has_many_header():
             x = self.data_processor.dataset.get_X()
 
-        for model in models_explained:           
-            
-            shap_model_analisys = {"time":model["time"],
-                                        "validation":model["validation"],
-                                        "fold":model["fold"],
-                                        "model_name":model["model_name"],
-                                        "x_test_index": model["x_test_index"]
+        def explain_current_model(model_to_explain, x):
+            shap_model_analisys = {"time":model_to_explain["time"],
+                                        "validation":model_to_explain["validation"],
+                                        "fold":model_to_explain["fold"],
+                                        "model_name":model_to_explain["model_name"],
+                                        "x_test_index": model_to_explain["x_test_index"]
                                     }
 
-            if "section" in model:
-                shap_model_analisys["section"] = model["section"]
-                x = self.data_processor.dataset.get_X(model["section"])
+            if "section" in model_to_explain:
+                shap_model_analisys["section"] = model_to_explain["section"]
+                x = self.data_processor.dataset.get_X(model_to_explain["section"])
 
-            x_to_consolidated = x.iloc[model["x_test_index"]]
+            x_to_consolidated = x.iloc[model_to_explain["x_test_index"]]
 
-            explainer_consolidated =  XAIHelper.get_explainer(model=model,X=x_to_consolidated)
+            explainer_consolidated =  XAIHelper.get_explainer(model=model_to_explain,X=x_to_consolidated)
 
             shap_values_consolidated = explainer_consolidated.shap_values(x_to_consolidated)
             shap_obj_consolidated    = explainer_consolidated(x_to_consolidated)
             
             expected_value_consolidated = explainer_consolidated.expected_value            
 
-            explainer =   XAIHelper.get_explainer(model=model,X=x)
+            explainer =   XAIHelper.get_explainer(model=model_to_explain,X=x)
 
             shap_values = explainer.shap_values(x)
             shap_obj    = explainer(x)
@@ -234,12 +236,67 @@ class AutoBioLearn(ABC):
             shap_model_analisys["expected_value"]=expected_value
             shap_model_analisys["shap_obj_consolidated"]= shap_obj_consolidated
             shap_model_analisys["shap_values_consolidated"]= shap_values_consolidated
-            shap_model_analisys["expected_value_consolidated"]=expected_value_consolidated  
-            
-            self.__SHAP_analisys.append(shap_model_analisys)
+            shap_model_analisys["expected_value_consolidated"]=expected_value_consolidated
+
+            return shap_model_analisys
+
+
+        with ThreadPoolExecutor() as executor:
+            future_to_model = [executor.submit(explain_current_model, models_to_execute, x) for models_to_execute in models_explained]
+
+            for future in as_completed(future_to_model):               
+                try:                   
+                    shap_model_analisys = future.result()
+                    self.__SHAP_analisys.append(shap_model_analisys)
+                except Exception as e:
+                   print(e)
+                   pass                  
         
     @apply_per_grouping        
-    def plot_shap_analysis(self,index_to_filter=None,consolidated= False,graph_type_global="summary",graph_type_local="force",show_all_features =True,class_index=0,**kwargs):
+    def plot_shap_analysis(self,index_to_filter=None,graph_type_global="summary",graph_type_local="force",show_all_features =True,class_index: int =0,**kwargs):
+        """
+        class_index works only lightgbm models, class_index is max value the number of classes in dataset -1.(Eg.: total class = 3, class_index_max=2)
+        kwargs use a list to filter by key models to analisys, where each key receives a list of values that will be filtered 
+        kwargs params: time, validation, model_name, fold.
+        Eg.: fold = [1,2,3]
+        """       
+
+        models_explained = self.__SHAP_analisys.copy()
+
+        kwargs_filtered_models = {key: value for  key, value in kwargs.items() if key not in "graph_params"}
+
+        for key, value in kwargs_filtered_models.items():
+            models_explained = list(filter(lambda x: x[key] in value, models_explained)) 
+        
+        if not self.data_processor.dataset.get_has_many_header():
+            X = self.data_processor.dataset.get_X()
+
+        kwargs_filtered_graph= {key: value for  key, value in kwargs.items() if key in "graph_params"}       
+ 
+        for model_explainable in models_explained:
+            if "section" in model_explainable:
+                X = self.data_processor.dataset.get_X(model_explainable["section"])
+                    
+            if index_to_filter is not None:
+                expected_value = model_explainable["expected_value"]
+                shap_values = model_explainable["shap_values"]
+
+                if model_explainable["model_name"] == ModelHelper.const_lightboost():
+                    expected_value = expected_value[class_index]
+                    shap_values =  shap_values[class_index]
+                
+                XAIHelper.get_chart_type_local(graph_type_local,expected_value,shap_values[index_to_filter],X.iloc[index_to_filter], \
+                                                         kwargs_filtered_graph, show_all_features=show_all_features)
+
+            else:
+                shap_values = model_explainable["shap_values"]
+                if model_explainable["model_name"] == ModelHelper.const_lightboost() and graph_type_global != "bar":
+                    shap_values=  shap_values[class_index]
+               
+                XAIHelper.get_chart_type_global(graph_type_global,shap_values,X,kwargs_filtered_graph, show_all_features=show_all_features)
+    
+    @apply_per_grouping
+    def plot_shap_analysis_consolidated(self,graph_type="summary",show_all_features =True,class_index=0,**kwargs):
         """
         class_index works only lightgbm models, class_index is max value the number of classes in dataset -1.(Eg.: total class = 3, class_index_max=2)
         kwargs use a list to filter by key models to analisys, where each key receives a list of values that will be filtered 
@@ -258,39 +315,20 @@ class AutoBioLearn(ABC):
             X = self.data_processor.dataset.get_X()
 
         kwargs_filtered_graph= {key: value for  key, value in kwargs.items() if key in "graph_params"}
-        #plt.switch_backend('agg')
-        if consolidated:          
-            models = list(set([x["model_name"] for x in models_explained]))
+                  
+        models = list(set([x["model_name"] for x in models_explained]))
             
-            for model in models:
-                if "section" in kwargs:
-                    X = self.data_processor.dataset.get_X(kwargs["section"])
-
-                shap_values, X_test = XAIHelper.get_consolidate_shap_values(models_explained, model, X, index_to_filter)                
-               
-                if index_to_filter is not None:
-                    pass
-                    #shap.plots.force(shap_values)
-                    #XAIHelper.get_graphic_type_local(graph_type_local,model_explainable["expected_value"],shap_values[index_to_filter],x.iloc[index_to_filter],kwargs_filtered_graph)
-                else:
-                    XAIHelper.get_graphic_type_global(graph_type_global,shap_values,X_test,kwargs_filtered_graph, show_all_features=show_all_features)
-
-        else:
-            for model_explainable in models_explained:
-                if "section" in model_explainable:
-                    X = self.data_processor.dataset.get_X(model_explainable["section"])
-                    
-                if index_to_filter is not None:
-                    if model_explainable["model_name"] == ModelHelper.const_lightboost():
-                        XAIHelper.get_graphic_type_local(graph_type_local,model_explainable["expected_value"][class_index],model_explainable["shap_values"][class_index][index_to_filter], \
-                                                          X.iloc[index_to_filter],kwargs_filtered_graph, show_all_features=show_all_features)
-
-                    else:
-                        XAIHelper.get_graphic_type_local(graph_type_local,model_explainable["expected_value"],model_explainable["shap_values"][index_to_filter],X.iloc[index_to_filter], \
-                                                         kwargs_filtered_graph, show_all_features=show_all_features)
-
-                else:
-                    XAIHelper.get_graphic_type_global(graph_type_global,model_explainable["shap_values"],X,kwargs_filtered_graph, show_all_features=show_all_features)
+        for model in models:
+            print("Model:", model)
+            if "section" in kwargs:
+                X = self.data_processor.dataset.get_X(kwargs["section"])
+            if model == ModelHelper.const_lightboost():
+                shap_values, X_test = XAIHelper.get_consolidate_shap_values_lightboost(models_explained, model, X, class_index,None)
+                XAIHelper.get_chart_type_global(graph_type,shap_values,X_test,kwargs_filtered_graph, show_all_features=show_all_features)
+            else:
+                shap_values, X_test = XAIHelper.get_consolidate_shap_values(models_explained, model, X, None)
+                XAIHelper.get_chart_type_global(graph_type,shap_values,X_test,kwargs_filtered_graph, show_all_features=show_all_features)
+        
                  
                
 #region Deprecated

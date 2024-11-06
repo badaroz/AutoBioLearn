@@ -6,6 +6,7 @@ from AutoBioLearn import AutoBioLearn
 from decorators import apply_per_grouping, requires_dataset
 from helpers import ModelHelper
 from imblearn.over_sampling import SMOTE
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 class AutoBioLearnClassification(AutoBioLearn):
     def __init__(self) -> None:
@@ -35,19 +36,20 @@ class AutoBioLearnClassification(AutoBioLearn):
         try:
             y = self.data_processor.dataset.get_Y(section)
         except:
-            y = self.data_processor.dataset.get_Y()
-
-        for model_name, (model_object, model_params_hidden_verbosity) in models_execution.items():
+            y = self.data_processor.dataset.get_Y()       
+        
+        def train_test_validation(model_execution):
+            executed = []               
+            model_name=model_execution[0] 
+            model_object, model_params_hidden_verbosity = model_execution[1]
 
             model_params = ModelHelper.get_model_params(model_name,params)       
             combination_params = ParameterGrid(model_params)
-            
-            for current_params in combination_params:
                 
-                for i in range(times_repeats):
-                
+            for current_params in combination_params:                
+                for i in range(times_repeats):                
                         for validation, validation_params in self._validations_execution.items():  
-                           
+                        
                             ix_list = ModelHelper.initialize_validation(validation_params['validation'], \
                                                                         validation_params['num_folds'],  \
                                                                         validation_params['train_size'], \
@@ -58,7 +60,7 @@ class AutoBioLearnClassification(AutoBioLearn):
                                 y_train = y.iloc[train_index]
                                 x_test = x.iloc[test_index]
                                 y_test = y.iloc[test_index]
-                                
+                                    
                                 if self.__balancing:
                                     x_train,y_train=SMOTE().fit_resample(x_train,y_train)
 
@@ -69,9 +71,32 @@ class AutoBioLearnClassification(AutoBioLearn):
                                 model_instance.fit(x_train, y_train)                                 
 
                                 y_pred = model_instance.predict(x_test)
+                                
+                                instance = {"time":i,
+                                            "validation":validation,
+                                            "fold":fold,
+                                            "model":model_instance,
+                                            "y_pred":y_pred,
+                                            "y_test":y_test,
+                                            "x_test_index":test_index }
+        
+                                if section:
+                                    instance["section"] = section
+                                executed.append(instance)
+            return executed         
 
-                                model_name_table = f'{model_name}_{str(current_params)}' if len(current_params) >0  else model_name
-                                self._add_model_executed(i,validation, fold, model_name_table,model_instance,y_pred, y_test,test_index, section)    
+        with ThreadPoolExecutor() as executor:
+            future_to_model = {executor.submit(train_test_validation, models_to_execute): models_to_execute[0] for models_to_execute in models_execution.items()}
+
+            for future in as_completed(future_to_model):
+                model_name = future_to_model[future]
+                try:
+                    models_executed = future.result()
+                    for model in models_executed:
+                        self._add_model_executed(model["time"],model["validation"], model["fold"], model_name,model["model"],model["y_pred"], model["y_test"],model["x_test_index"], section)
+                except Exception:
+                   pass
+            
                                     
 
     @deprecated("Method will be deprecated, consider using execute_models_with_best_model")
