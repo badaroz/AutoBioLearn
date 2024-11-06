@@ -147,7 +147,10 @@ class Dataset:
             self._data = self.__original_data
         
         if cols_to_drop is not None and any(cols_to_drop):
-            self._data.drop(cols_to_drop,axis=1,inplace=True,level=cols_levels)
+            if self._has_many_header:
+                self._data.drop(cols_to_drop,axis=1,inplace=True,level=cols_levels)
+            else:
+                  self._data.drop(cols_to_drop,axis=1,inplace=True)
             self._set_sections()
 
         if cols_date is not None and any(cols_date):             
