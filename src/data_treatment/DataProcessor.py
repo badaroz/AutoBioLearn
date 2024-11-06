@@ -12,25 +12,26 @@ class DataProcessor:
         self.dataset.encode_categorical(cols)
 
     @requires_dataset
-    def drop_cols_na(self, percent=30.0):
-        self.dataset.drop_na(axis=ContentHelper.const_axis_column(), percent=percent, show_dropped=True)
+    def drop_cols_na(self, percent=30.0, section: str=None):
+        self.dataset.drop_na(axis=ContentHelper.const_axis_column(), percent=percent, show_dropped=True, section= section)
 
     @requires_dataset
-    def drop_rows_na(self, percent=10.0):        
-        self.dataset.drop_na(axis=ContentHelper.const_axis_row(), percent=percent, show_dropped=True)
+    def drop_rows_na(self, percent=10.0, section: str=None):        
+        self.dataset.drop_na(axis=ContentHelper.const_axis_row(), percent=percent, show_dropped=True, section= section)
     
     @requires_dataset
-    def show_cols_na(self):        
-        self.dataset.print_na(axis=ContentHelper.const_axis_column())
+    def show_cols_na(self, section: str=None):        
+        self.dataset.print_na(axis=ContentHelper.const_axis_column(), section= section)
     
     @requires_dataset
-    def show_rows_na(self):        
-        self.dataset.print_na(axis=ContentHelper.const_axis_row())
+    def show_rows_na(self, section: str=None):        
+        self.dataset.print_na(axis=ContentHelper.const_axis_row(), section= section)
 
     @requires_dataset
-    def remove_cols(self, cols:list[str] = [], cols_levels=0):      
-        self.dataset.clean_data(cols_to_drop =cols, cols_levels= cols_levels)
+    def remove_cols(self, cols:list[str] = []):      
+        self.dataset.clean_data(cols_to_drop =cols)    
+    
 
     @requires_dataset
-    def encode_datetime(self, cols:list[str] = [], cols_levels=0):  
-        self.dataset.clean_data(cols_date=cols, cols_levels= cols_levels)   
+    def encode_datetime(self, cols:list[str] = []):  
+        self.dataset.clean_data(cols_date=cols)   

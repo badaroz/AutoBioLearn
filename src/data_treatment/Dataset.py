@@ -21,8 +21,9 @@ class Dataset:
         self.__original_data = original_data.copy(deep=True)
         self._data = original_data.copy(deep=True)      
         self._has_many_header = isinstance(original_data.columns, pd.MultiIndex)
-        self.__target = self.__find_multiindex(target,1)
-        self._sections = []
+        self.__target = target
+        self._sections = {}
+        self._sections_name = []
 
         self._set_sections()    
 
@@ -58,58 +59,61 @@ class Dataset:
         return profile.to_notebook_iframe()
 
     def _typesToX(self):
-        return ['int64', 'float64','int32']
-    
-    def _set_sections(self):
-        if self._has_many_header:
-            self._sections = np.unique(self._data.columns.get_level_values(0).values)   
+        return ['int64', 'float64','int32']   
     
     def get_has_many_header(self)-> bool:
         return self._has_many_header
     
     def get_sections(self)-> list:
-        return self._sections
+        return self._sections.keys()
 
-    def remove_duplicates(self,use_original_data: False):
-        if use_original_data:
-            self._data = self.__original_data.drop_duplicates(ignore_index=True)
+    def remove_duplicates(self, use_original_data: False, section:str=None):
+        if not self._has_many_header:
+            if use_original_data:
+                self._data = self.__original_data.drop_duplicates(ignore_index=True)
+            else:
+                self._data = self._data.drop_duplicates(ignore_index=True)
         else:
-            self._data = self._data.drop_duplicates(ignore_index=True)
+            self._sections[section]= self._sections[section].drop_duplicates(ignore_index=True)
 
-    def __count_na(self, axis=1):
+    def __count_na(self, df,axis=1):
         neg_axis = 1 - axis
-        count   = self._data.isna().sum(axis=neg_axis)
-        percent = self._data.isna().mean(axis=neg_axis) * 100
+        count   = df.isna().sum(axis=neg_axis)
+        percent = df.isna().mean(axis=neg_axis) * 100
         df_na   = pd.DataFrame({'percent':percent, 'count':count})
         index_name = 'column' if axis==ContentHelper.const_axis_column() else 'index'
         df_na.index.name = index_name
         df_na.sort_values(by='count', ascending=False, inplace=True)
         return df_na
 
-    def print_na(self, axis=1):
-        df_na = self.__count_na(axis=axis)
+    def __print_na(self, df, axis=1):
+        df_na = self.__count_na(df,axis=axis)
         #
         max_rows = pd.get_option('display.max_rows', None)
         pd.set_option('display.max_rows', None)
         print(df_na)
         pd.set_option('display.max_rows', max_rows)
 
-    def drop_na(self, axis=0, percent=30.0, show_dropped=True):
-        df_na = self.__count_na(axis=axis)
+    def print_na(self, axis=1, section:str=None):       
+        if not self._has_many_header:
+           self.__print_na(self._data,axis)
+        else:           
+            self.__print_na(self._sections[section],axis=axis)              
+        
+    
+    def __drop_na(self, df ,axis=0, percent=30.0, show_dropped=True):
+        df_na = self.__count_na(df=df,axis=axis)
         to_drop = df_na[df_na['percent'] > percent].index
         if show_dropped:
             print(to_drop)
-        
-        self._data = self._data.drop(labels=to_drop, axis=axis)
-        self._set_sections()  
+            
+        return df.drop(labels=to_drop, axis=axis)
 
-    def resolve_missing_data(self, startegy='mean' ,use_original_data= False):       
-        imputer = SimpleImputer(fill_value=np.nan, startegy=startegy)
-
-        if use_original_data:
-            self._data = self.__original_data
-
-        self._data = imputer.fit_transform(self._data)
+    def drop_na(self, axis=0, percent=30.0, show_dropped=True, section:str=None):
+        if not self._has_many_header:
+           self._data = self.__drop_na(self._data, axis,percent,show_dropped)
+        else:
+            self._sections[section] = self.__drop_na(self._sections[section], axis,percent,show_dropped)
 
     def remove_outliers(self, method_remove= "limit_method", use_original_data= False):
         if method_remove is None:
@@ -142,71 +146,111 @@ class Dataset:
                 raise AttributeError("method_remove not exists")
    
 
-    def clean_data(self,cols_to_drop:list[str] = [],cols_date:list[str] = [], cols_levels=0, try_convert_values= False, use_original_data= False):
+    def clean_data(self,cols_to_drop:list[str] = [],cols_date:list[str] = [], try_convert_values= False, use_original_data= False):
         if use_original_data:
             self._data = self.__original_data
         
         if cols_to_drop is not None and any(cols_to_drop):
             if self._has_many_header:
-                self._data.drop(cols_to_drop,axis=1,inplace=True,level=cols_levels)
+                cols_filtered = [self.__find_multiindex(col) for col in cols_to_drop]
+                for section in self._sections_name:
+                    cols_section = [col[1] for col in cols_filtered if col[0] == section]
+                    self._sections[section].drop(cols_section,axis=1,inplace=True)
             else:
-                  self._data.drop(cols_to_drop,axis=1,inplace=True)
-            self._set_sections()
+                self._data.drop(cols_to_drop,axis=1,inplace=True)
+            
 
-        if cols_date is not None and any(cols_date):             
-            for i in range(len(cols_date)):
-                if isinstance(cols_date[i], str):
-                   cols_date[i]= self.__find_multiindex(cols_date[i], cols_levels)
-                else:
-                    cols_date[i][0]= self.__find_multiindex(cols_date[i][0], cols_levels)
-
-            ContentHelper.convert_datetime(self._data,cols_date)
+        if cols_date is not None and any(cols_date):
+            if self._has_many_header:
+                cols_filtered={}             
+                for i in range(len(cols_date)):
+                    if isinstance(cols_date[i], str):
+                        col_path = self.__find_multiindex(cols_date[i])                    
+                    else:
+                        col_path = self.__find_multiindex(cols_date[i][0])
+                    if col_path[0] in cols_filtered:
+                        cols_filtered[col_path[0]].append(cols_date[i])
+                    else:
+                        cols_filtered[col_path[0]] = list()
+                    
+                    for section in cols_filtered.keys():
+                        ContentHelper.convert_datetime(self._sections[section],cols_filtered[section])
+            else:
+                ContentHelper.convert_datetime(self._data,cols_date)
 
         if try_convert_values:
             ContentHelper.try_convert_object_values(self._data)  
 
-    def encode_categorical(self, cols:list[str] = [""] ):
-        cols = [self.__find_multiindex(col,1) for col in cols]
-        ContentHelper.convert_cols_values(self._data,cols)
+    def encode_categorical(self, cols:list[str] = [""]):
+        if self._has_many_header:
+            cols_filtered = [self.__find_multiindex(col) for col in cols]
+            for section in self._sections_name:
+                cols_section = [col[1] for col in cols_filtered if col[0] == section]
+                ContentHelper.convert_cols_values(self._sections[section],cols_section)
+        else:
+            ContentHelper.convert_cols_values(self._data,cols)
     
     def get_X(self, section: str= None)->DataFrame:
         if section is None and not self._has_many_header:
             numeric_cols = [cname for cname in self._data.columns if self._data[cname].dtype in self._typesToX()]
             X = self._data[numeric_cols].copy()
         else:
-            numeric_cols = [cname for cname in self._data[section].columns if self._data[section][cname].dtype in self._typesToX()]
-            X = self._data[section][numeric_cols].copy()
+            numeric_cols = [cname for cname in self._sections[section].columns if self._sections[section][cname].dtype in self._typesToX()]
+            X = self._sections[section][numeric_cols].copy()
         
         if self.__target not in numeric_cols:           
             return X 
         else:
             return X.drop([self.__target],axis=1,inplace=False)
     
-    def get_Y(self)->DataFrame:   
-        return self._get_Y(self.__target)
+    def get_Y(self, section: str= None)->DataFrame:
+        if self._has_many_header:
+            return self._get_Y(self._sections[section],self.__target)
+        else:   
+            return self._get_Y(self._data,self.__target)
     
-    def _get_Y(self, target)->DataFrame:
-        if self._data[target].dtype not in self._typesToX():
-            self.encode_categorical([target])
+    def _get_Y(self, df,target)->DataFrame:
+        if df[target].dtype not in self._typesToX():
+            ContentHelper.convert_cols_values(df,[target])
             
-        return self._data[target]
+        return df[target]
     
-    def impute_cols_na(self, method="knn", n_neighbors=5):
+    def __impute_cols_na(self, df ,method="knn", n_neighbors=5):
         if method == "knn":
             imputer = KNNImputer(n_neighbors=n_neighbors)            
         else:
            imputer = SimpleImputer(fill_value=np.nan, startegy=method)
         
-        self._data = imputer.fit_transform(self._data) 
+        df = imputer.fit_transform(df)
 
-
-    def __find_multiindex(self, col, col_level=0):
-        if isinstance(self._data.columns, pd.MultiIndex):
-            for idx in self._data.columns:       
-                if col in idx[col_level]:
-                    return idx
+    def impute_cols_na(self, method="knn", n_neighbors=5, section: str=None):
+        if not self._has_many_header:
+            self.__impute_cols_na(self._data, method, n_neighbors) 
         else:
-            for idx in self._data.columns:       
-                if col in idx:
-                    return idx
+            self.__impute_cols_na(self._sections[section], method, n_neighbors) 
+
+
+    def drop_section(self,sections: list[str]):
+        for section in sections:
+            del self._sections[section]
+            self._sections_name.remove(section)
+
+    def __find_multiindex(self, col):      
+        for idx in self._data.columns:
+            if col in idx:
+                return idx
         return None
+    
+
+    def _set_sections(self): 
+        if self._has_many_header:
+            mi_target = np.array(self.__find_multiindex(self.__target))        
+            
+            for col in self._data.columns.get_level_values(0).unique():
+                if col in mi_target:
+                    cols_to_filter = self._data.columns[self._data.columns.get_level_values(0) == col].values.tolist()
+                else:
+                    cols_to_filter = self._data.columns[self._data.columns.get_level_values(0) == col].values.tolist()+[mi_target]
+                
+                self._sections[col]=self._data[cols_to_filter].droplevel(0,1)
+                self._sections_name.append(col)

@@ -6,7 +6,7 @@ from data_treatment.DatasetByFile import DatasetByFile
 class DatasetCustomAnalysis(DatasetByFile):
     def __init__(self, file_path: str, groups:dict,delimiter: None, verbose=False):
         super().__init__(file_path,"",delimiter,verbose)
-        self._sections = groups.keys()
+        self._sections_name = groups.keys()
         self._has_many_header = len(groups.keys()) > 0
 
 
@@ -32,4 +32,4 @@ class DatasetCustomAnalysis(DatasetByFile):
         pass
 
     def get_Y(self, section:str = None)-> DataFrame:
-        self._get_Y(self.groups[section]["y_col_name"])
+        self._get_Y(self._data[self.groups[section]["x_col_name"]],self.groups[section]["y_col_name"])

@@ -41,28 +41,37 @@ class AutoBioLearn(ABC):
             self.data_processor.encode_categorical(cols)
 
     @requires_dataset
-    def drop_cols_na(self, percent=30.0):
-        self.data_processor.drop_cols_na(percent)
+    @apply_per_grouping
+    def drop_cols_na(self, percent=30.0, section: str=None):
+        self.data_processor.drop_cols_na(percent,section= section)
 
     @requires_dataset
-    def drop_rows_na(self, percent=10.0):
-        self.data_processor.drop_rows_na(percent)
+    @apply_per_grouping
+    def drop_rows_na(self, percent=10.0, section: str=None):
+        self.data_processor.drop_rows_na(percent,section= section)
 
     @requires_dataset
-    def show_cols_na(self):
-        self.data_processor.show_cols_na()
+    @apply_per_grouping
+    def show_cols_na(self, section: str=None):
+        self.data_processor.show_cols_na(section= section)
     
-    @requires_dataset  
-    def show_rows_na(self):       
-        self.data_processor.show_rows_na()
+    @requires_dataset
+    @apply_per_grouping  
+    def show_rows_na(self, section: str=None):       
+        self.data_processor.show_rows_na(section= section)
 
     @requires_dataset
-    def remove_cols(self, cols:list[str] = [], cols_levels= 0):
-        self.data_processor.remove_cols(cols, cols_levels= cols_levels)
+    def remove_cols(self, cols:list[str] = []):
+        self.data_processor.remove_cols(cols)
 
     @requires_dataset
-    def remove_duplicates(self):      
-        self.data_processor.dataset.remove_duplicates()
+    @apply_per_grouping 
+    def remove_duplicates(self, section: str=None):      
+        self.data_processor.dataset.remove_duplicates(section= section)
+    
+    @requires_dataset    
+    def drop_section(self, sections: list[str]):      
+        self.data_processor.dataset.drop_section(sections)
 
     @requires_dataset
     def encode_datetime(self, cols:list[str] = [], cols_levels= 0, parallel: bool = False):
@@ -344,14 +353,16 @@ class AutoBioLearn(ABC):
         self.data_processor.encode_categorical(cols)
     
     @requires_dataset
+    @apply_per_grouping
     @deprecated("Method will be deprecated, consider using show_cols_na")
-    def print_cols_na(self):
-        self.data_processor.show_cols_na()
+    def print_cols_na(self, section: str=None):
+        self.data_processor.show_cols_na(section= section)
     
     @requires_dataset
+    @apply_per_grouping
     @deprecated("Method will be deprecated, consider using show_rows_na")  
-    def print_rows_na(self):       
-        self.data_processor.show_rows_na()
+    def print_rows_na(self, section: str=None):
+        self.data_processor.show_rows_na(section= section)
 
     @requires_dataset
     @deprecated("Method will be deprecated, consider using encode_numerical")  
