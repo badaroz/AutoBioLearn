@@ -101,15 +101,7 @@ class AutoBioLearn(ABC):
     @abstractmethod
     def execute_models(self, models:list[str]=["xgboost"],  times_repeats:int=10, params={}, section:str=None):
         return
-    
-    @abstractmethod
-    def execute_models_with_best_model(self, models:list[str]=["xgboost"],  
-                                   times_repeats:int=10,
-                                   params={}, 
-                                   params_method="grid",
-                                   section: str=None):
-       return   
-
+      
     def _add_model_executed(self ,time: int,validation: str, fold: int,                                                         
                             model_name: str, model,y_pred, y_test, x_test_index, section= None):
         
@@ -129,19 +121,19 @@ class AutoBioLearn(ABC):
 
 
     def _find_best_hyperparams(self, clf_model,
-                          X,
-                          y,
-                          param_grid,
-                          param_sel_obj,
-                            validation,num_folds, train_size
-                          ):    
-
-        train_i = ModelHelper.initialize_validation(validation,num_folds,train_size, X,y)
+                            X,
+                            y,
+                            param_grid,
+                            param_sel_obj,
+                            num_folds,
+                            metric
+                          ):  
 
     # Grid search optimal parameters
         clf_grid = param_sel_obj(clf_model,
                                   param_grid,                                  
-                                  #cv=train_i,
+                                  cv=num_folds,
+                                  scoring = metric
                                   )
 
     # training model
@@ -221,7 +213,7 @@ class AutoBioLearn(ABC):
                                         "x_test_index": model_to_explain["x_test_index"]
                                     }
 
-            if "section" in model_to_explain:
+            if "section" in model_to_explain:                
                 shap_model_analisys["section"] = model_to_explain["section"]
                 x = self.data_processor.dataset.get_X(model_to_explain["section"])
 

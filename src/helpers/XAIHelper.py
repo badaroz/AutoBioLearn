@@ -112,7 +112,7 @@ class XAIHelper(object):
               
 
                 for col in col_axel_y:
-                    shap.dependence_plot(col, shap_values, X,max_display=max_features)
+                    shap.dependence_plot(col, shap_values, X)
 
             elif "violin" in graph_type:
                 shap.summary_plot(shap_values, X, title="SHAP summary plot",plot_type="violin", show=False,max_display=max_features) 

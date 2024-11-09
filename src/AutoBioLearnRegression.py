@@ -17,7 +17,7 @@ class AutoBioLearnRegression(AutoBioLearn):
     @requires_dataset
     @apply_per_grouping  
     def execute_models(self, models:list[str]=["xgboost"],  times_repeats:int=10, params={}, section:str=None):
-         
+                
         models_execution = {}
         if not self.data_processor.dataset.get_has_many_header():
             self._models_executed = []
@@ -30,17 +30,61 @@ class AutoBioLearnRegression(AutoBioLearn):
         try:
             y = self.data_processor.dataset.get_Y(section)
         except:
-            y = self.data_processor.dataset.get_Y()       
+            y = self.data_processor.dataset.get_Y()
         
+        params_method = 'quick'
+
+        if "best_params_method" in params:
+            params_method = params["best_params_method"]
+
+        if params_method == 'quick':
+            model_gen =  RandomizedSearchCV
+        else:
+            model_gen = GridSearchCV
+
+        params_models = {}
+
+        if "params_models" in params:
+            params_models = params["params_models"]
+        
+        train_size_best_params = 70
+
+        if "best_params_method" in params:
+            train_size_best_params = params["best_params_method"]
+
+        fold_best_params = 5
+        if "best_params_n_folds" in params:
+            fold_best_params = params["best_params_n_folds"]
+
+        metric_best_params = None
+        if "best_params_metrics" in params:
+            metric_best_params = params["best_params_metrics"]
+            
         def train_test_validation(model_execution):
             executed = []               
             model_name=model_execution[0] 
             model_object, model_params_hidden_verbosity = model_execution[1]
 
-            model_params = ModelHelper.get_model_params(model_name,params)       
-            combination_params = ParameterGrid(model_params)
-                
-            for current_params in combination_params:                
+            ix_list_best_params, _ = ModelHelper.initialize_validation(ModelHelper.get_validations("split"), \
+                                                                        0,  \
+                                                                        train_size_best_params, \
+                                                                        x, y)[0]
+            model_params = ModelHelper.get_model_params(model_name,params_models)
+            best_params = {}
+            if bool(model_params):                 
+                model_params = ModelHelper.get_model_params(model_name,params_models)       
+                model_instance = model_object()
+                            
+
+                model_instance.set_params(**model_params_hidden_verbosity)
+                best_params = self._find_best_hyperparams(model_instance, \
+                                                        x.iloc[ix_list_best_params], \
+                                                        y.iloc[ix_list_best_params], \
+                                                        model_params, \
+                                                        model_gen, \
+                                                        fold_best_params, \
+                                                        metric_best_params)
+            for current_params in [best_params]:                
                 for i in range(times_repeats):                
                         for validation, validation_params in self._validations_execution.items():  
                         
@@ -53,7 +97,7 @@ class AutoBioLearnRegression(AutoBioLearn):
                                 x_train = x.iloc[train_index]
                                 y_train = y.iloc[train_index]
                                 x_test = x.iloc[test_index]
-                                y_test = y.iloc[test_index]    
+                                y_test = y.iloc[test_index]       
 
                                 model_instance = model_object()
                                 merged_params = {**current_params, **model_params_hidden_verbosity}
@@ -85,80 +129,9 @@ class AutoBioLearnRegression(AutoBioLearn):
                     models_executed = future.result()
                     for model in models_executed:
                         self._add_model_executed(model["time"],model["validation"], model["fold"], model_name,model["model"],model["y_pred"], model["y_test"],model["x_test_index"], section)
-                except Exception:
-                   pass
-                           
-
-    @deprecated("Method will be deprecated, consider using execute_models_with_best_model")
-    def run_models_with_best_model(self, models:list[str]=["xgboost"],  
-                                   times_repeats:int=10,
-                                   params={}, 
-                                   params_method="grid",
-                                   section: str=None):
-        
-        self.execute_models_with_best_model(models,times_repeats,params, params_method,section)
-        
-    @requires_dataset
-    @apply_per_grouping   
-    def execute_models_with_best_model(self, models:list[str]=["xgboost"],  
-                                   times_repeats:int=10,
-                                   params={}, 
-                                   params_method="grid",
-                                   section: str=None):
-        models_execution = {}
-        if not self.data_processor.dataset.get_has_many_header():
-            self._models_executed = []
-        
-        if params_method == 'random':
-            model_gen =  RandomizedSearchCV
-        else:
-            model_gen = GridSearchCV
-
-        unique_models = set(models)
-        for model_name in unique_models:
-            models_execution[model_name] = ModelHelper.get_model(model_name, "regressor")
-
-        x = self.data_processor.dataset.get_X(section)
-        try:
-            y = self.data_processor.dataset.get_Y(section)
-        except:
-            y = self.data_processor.dataset.get_Y()
-
-        for model_name, (model_object, model_params_hidden_verbosity) in models_execution.items():
-
-            model_params = ModelHelper.get_model_params(model_name,params)       
-            model_instance = model_object()
-                          
-
-            model_instance.set_params(**model_params_hidden_verbosity)
-            best_params = self._find_best_hyperparams(model_instance,x, y,model_params,model_gen,ModelHelper.get_validations("split"),1,70)
-            for i in range(times_repeats):                
-                        for validation, validation_params in self._validations_execution.items():  
-                           
-                            ix_list = ModelHelper.initialize_validation(validation_params['validation'], \
-                                                                        validation_params['num_folds'],  \
-                                                                        validation_params['train_size'], \
-                                                                        x, \
-                                                                        y)
-
-                            for fold, (train_index, test_index) in enumerate(ix_list):
-                                x_train = x.iloc[train_index]
-                                y_train = y.iloc[train_index]
-                                x_test = x.iloc[test_index]
-                                y_test = y.iloc[test_index]                               
-
-                                model_instance = model_object()                             
-                                merged_params = {**best_params, **model_params_hidden_verbosity}
-
-                                model_instance.set_params(**merged_params)
-
-                                model_instance.fit(x_train, y_train)                                 
-
-                                y_pred = model_instance.predict(x_test)
-
-                                model_name_table = f'{model_name}_{str(best_params)}' if len(best_params) >0  else model_name
-                                self._add_model_executed(i,validation, fold, model_name_table,model_instance,y_pred, y_test,test_index, section)
-
+                except Exception as ex:
+                   print(ex)
+                   
     @apply_per_grouping
     @deprecated("Method will be deprecated, consider using evaluate_models")
     def eval_models(self, metrics: list[str] = ["MSE","RMSE","R2","MAE","MAPE"], section: str = None) -> dict:
