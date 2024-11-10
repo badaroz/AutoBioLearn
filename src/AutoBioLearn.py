@@ -85,8 +85,8 @@ class AutoBioLearn(ABC):
             self.data_processor.encode_datetime(cols, cols_levels= cols_levels)
 
     @requires_dataset    
-    def impute_cols_na(self,method="knn"):       
-        self.data_processor.dataset.impute_cols_na(method=method)
+    def impute_cols_na(self,method="knn", section: str=None):       
+        self.data_processor.dataset.impute_cols_na(method=method, section= section)
 
     def set_validations(self, validations:list[str]=["split"], params ={}):
         self._validations_execution= {}     

@@ -221,13 +221,16 @@ class Dataset:
         else:
            imputer = SimpleImputer(fill_value=np.nan, startegy=method)
         
-        df = imputer.fit_transform(df)
+        df_return =  pd.DataFrame(imputer.fit_transform(df))
+        df_return.columns = df.columns
+        df_return.index = df.index
+        return df_return
 
     def impute_cols_na(self, method="knn", n_neighbors=5, section: str=None):
         if not self._has_many_header:
-            self.__impute_cols_na(self._data, method, n_neighbors) 
+            self._data=self.__impute_cols_na(self._data, method, n_neighbors) 
         else:
-            self.__impute_cols_na(self._sections[section], method, n_neighbors) 
+            self._sections[section]=self.__impute_cols_na(self._sections[section], method, n_neighbors) 
 
 
     def drop_section(self,sections: list[str]):
