@@ -65,10 +65,10 @@ class Dataset:
         return self._has_many_header
     
     def get_sections(self)-> list:
-        return self._sections.keys()
+        return self._sections_name
 
     def remove_duplicates(self, use_original_data: False, section:str=None):
-        if not self._has_many_header:
+        if not self._has_many_header and bool(self._sections):
             if use_original_data:
                 self._data = self.__original_data.drop_duplicates(ignore_index=True)
             else:
@@ -95,7 +95,7 @@ class Dataset:
         pd.set_option('display.max_rows', max_rows)
 
     def print_na(self, axis=1, section:str=None):       
-        if not self._has_many_header:
+        if not self._has_many_header or not bool(self._sections):
            self.__print_na(self._data,axis)
         else:           
             self.__print_na(self._sections[section],axis=axis)              
@@ -110,7 +110,7 @@ class Dataset:
         return df.drop(labels=to_drop, axis=axis)
 
     def drop_na(self, axis=0, percent=30.0, show_dropped=True, section:str=None):
-        if not self._has_many_header:
+        if not self._has_many_header or not bool(self._sections):
            self._data = self.__drop_na(self._data, axis,percent,show_dropped)
         else:
             self._sections[section] = self.__drop_na(self._sections[section], axis,percent,show_dropped)
@@ -151,7 +151,7 @@ class Dataset:
             self._data = self.__original_data
         
         if cols_to_drop is not None and any(cols_to_drop):
-            if self._has_many_header:
+            if self._has_many_header and bool(self._sections):
                 cols_filtered = [self.__find_multiindex(col) for col in cols_to_drop]
                 for section in self._sections_name:
                     cols_section = [col[1] for col in cols_filtered if col[0] == section]
@@ -161,7 +161,7 @@ class Dataset:
             
 
         if cols_date is not None and any(cols_date):
-            if self._has_many_header:
+            if self._has_many_header and bool(self._sections):
                 cols_filtered={}             
                 for i in range(len(cols_date)):
                     if isinstance(cols_date[i], str):
@@ -182,7 +182,7 @@ class Dataset:
             ContentHelper.try_convert_object_values(self._data)  
 
     def encode_categorical(self, cols:list[str] = [""]):
-        if self._has_many_header:
+        if self._has_many_header and bool(self._sections):
             cols_filtered = [self.__find_multiindex(col) for col in cols]
             for section in self._sections_name:
                 cols_section = [col[1] for col in cols_filtered if col[0] == section]
@@ -227,7 +227,7 @@ class Dataset:
         return df_return
 
     def impute_cols_na(self, method="knn", n_neighbors=5, section: str=None):
-        if not self._has_many_header:
+        if not self._has_many_header or not bool(self._sections):
             self._data=self.__impute_cols_na(self._data, method, n_neighbors) 
         else:
             self._sections[section]=self.__impute_cols_na(self._sections[section], method, n_neighbors) 
