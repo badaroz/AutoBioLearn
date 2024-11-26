@@ -74,7 +74,7 @@ class AutoBioLearnClassification(AutoBioLearn):
             model_name=model_execution[0] 
             model_object, model_params_hidden_verbosity = model_execution[1]
 
-            ix_list_best_params, _ = ModelHelper.initialize_validation(ModelHelper.get_validations("split", "classifier")), \
+            ix_list_best_params, _ = ModelHelper.initialize_validation(ModelHelper.get_validations("split", "classifier"), \
                                                                         0,  \
                                                                         train_size_best_params, \
                                                                         x, y)[0]
