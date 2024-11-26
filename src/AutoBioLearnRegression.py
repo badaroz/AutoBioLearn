@@ -13,6 +13,9 @@ class AutoBioLearnRegression(AutoBioLearn):
     @deprecated("Method will be deprecated, consider using execute_models")
     def run_models(self, models:list[str]=["xgboost"],  times_repeats:int=10, params={}, section:str=None):
         self.execute_models(models, times_repeats,params,section)
+    
+    def _get_validation(self ,validation: str):
+        return ModelHelper.get_validations(validation, "regressor")
 
     @requires_dataset
     @apply_per_grouping  
@@ -49,8 +52,8 @@ class AutoBioLearnRegression(AutoBioLearn):
         
         train_size_best_params = 70
 
-        if "best_params_method" in params:
-            train_size_best_params = params["best_params_method"]
+        if "best_params_train_size" in params:
+            train_size_best_params = params["best_params_train_size"]
 
         fold_best_params = 5
         if "best_params_n_folds" in params:
@@ -65,7 +68,7 @@ class AutoBioLearnRegression(AutoBioLearn):
             model_name=model_execution[0] 
             model_object, model_params_hidden_verbosity = model_execution[1]
 
-            ix_list_best_params, _ = ModelHelper.initialize_validation(ModelHelper.get_validations("split"), \
+            ix_list_best_params, _ = ModelHelper.initialize_validation(ModelHelper.get_validations("split","regressor"), \
                                                                         0,  \
                                                                         train_size_best_params, \
                                                                         x, y)[0]

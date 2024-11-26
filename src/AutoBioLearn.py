@@ -14,7 +14,7 @@ class AutoBioLearn(ABC):
     def __init__(self) -> None:
         self._models_executed = []
         self._validations_execution = {}
-        validation_object = ModelHelper.get_validations("split")
+        validation_object =self._get_validation("split")
         self._validations_execution["split"] = {
             'validation': validation_object,
             'num_folds': 0,
@@ -94,10 +94,14 @@ class AutoBioLearn(ABC):
         unique_validations = set(validations)
 
         for validation in unique_validations:
-            validation_object = ModelHelper.get_validations(validation)
+            validation_object = self._get_validation(validation)
             validation_params = ModelHelper.get_model_params(validation,params)
             self._validations_execution[validation] =  { 'validation': validation_object, 'num_folds': validation_params["num_folds"],'train_size':validation_params["train_size"]}
-                
+    
+    @abstractmethod
+    def _get_validation(self,validation: str):
+        return
+
     @abstractmethod
     def execute_models(self, models:list[str]=["xgboost"],  times_repeats:int=10, params={}, section:str=None):
         return

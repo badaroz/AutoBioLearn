@@ -65,16 +65,24 @@ class ModelHelper(object):
         
 
     @staticmethod  
-    def get_validations(validation):
-        validations={
+    def get_validations(validation, model_type ="classifier"):
+        validations_classification={
             "kfold": KFold,
             "stratified_kfold": StratifiedKFold,
             "leave_one_out": LeaveOneOut,
             "split" : StratifiedShuffleSplit
         }
+
+        validations_regression ={
+            "kfold": KFold,            
+            "leave_one_out": LeaveOneOut,
+            "split" : ShuffleSplit
+        }
         
-        return validations[validation]   
-  
+        if model_type.lower() == 'classifier':
+            return validations_classification[validation.lower()]
+        elif model_type.lower() == 'regressor':
+            return validations_regression[validation.lower()]  
 
     @staticmethod  
     def initialize_validation(validation_object, num_folds: int,train_size:float, X, y):
