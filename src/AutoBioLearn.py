@@ -41,12 +41,10 @@ class AutoBioLearn(ABC):
             self.data_processor.encode_categorical(cols)
 
     @requires_dataset
-    @apply_per_grouping
     def drop_cols_na(self, percent=30.0, section: str=None):
         self.data_processor.drop_cols_na(percent,section= section)
 
-    @requires_dataset
-    @apply_per_grouping
+    @requires_dataset   
     def drop_rows_na(self, percent=10.0, section: str=None):
         self.data_processor.drop_rows_na(percent,section= section)
 

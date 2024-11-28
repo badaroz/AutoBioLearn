@@ -1,7 +1,7 @@
 from matplotlib import pyplot as plt
 import pandas as pd
 from pandas import DataFrame
-from pandas_profiling import ProfileReport
+from ydata_profiling import ProfileReport
 
 from scipy import stats
 from scipy.stats.mstats import winsorize
@@ -48,7 +48,7 @@ class Dataset:
             #endregion
                 
     def generate_data_report(self,path_to_save_report=None):
-        profile = ProfileReport(self._data, title="Profiling Report")
+        profile = ProfileReport(self._data, title="Data Analysis")
         report = profile.to_html()   
         
         if path_to_save_report is not None:
