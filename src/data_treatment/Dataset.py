@@ -12,6 +12,8 @@ from helpers.DatasetHelper import DatasetHelper
 from helpers.ContentHelper import ContentHelper
 
 from sklearn.impute import KNNImputer, SimpleImputer
+
+import seaborn as sns
 class Dataset:
     
     def __init__(self, original_data: DataFrame, target: str, verbose= False):        
@@ -232,7 +234,6 @@ class Dataset:
         else:
             self._sections[section]=self.__impute_cols_na(self._sections[section], method, n_neighbors) 
 
-
     def drop_section(self,sections: list[str]):
         for section in sections:
             del self._sections[section]
@@ -242,8 +243,7 @@ class Dataset:
         for idx in self._data.columns:
             if col in idx:
                 return idx
-        return None
-    
+        return None    
 
     def _set_sections(self): 
         if self._has_many_header:
@@ -257,3 +257,37 @@ class Dataset:
                 
                 self._sections[col]=self._data[cols_to_filter].droplevel(0,1)
                 self._sections_name.append(col)
+
+    
+    def generate_data_heatmap(self, show_values = False, fig_size= (0,0), section:str=None):
+        if fig_size != (0,0):
+            _, ax = plt.subplots(figsize=fig_size)
+            sns.heatmap(self.get_X(section).corr(), ax= ax,vmin=-1, vmax=1, annot=show_values,  linewidths=.5, fmt=".2f")
+        else:
+             sns.heatmap(self.get_X(section).corr(), vmin=-1, vmax=1, annot=show_values,  linewidths=.5, fmt=".2f")
+    
+    def generate_data_heatmap_custom(self, show_values = False, fig_size= (0,0), section:str=None):
+        X_corr = self.get_X(section).corr()
+        mask = np.triu(X_corr)
+        if fig_size != (0,0):
+            _, ax = plt.subplots(figsize=fig_size)
+
+            sns.heatmap(X_corr, mask=mask, ax= ax,
+            annot=show_values, fmt=".2f", linewidths=0.5,
+            vmin=-1, vmax=1, cmap="vlag")
+        else:           
+            sns.heatmap(X_corr, mask=mask,
+                annot=show_values, fmt=".2f", linewidths=0.5,
+                vmin=-1, vmax=1, cmap="vlag")
+      
+    def generate_data_pairplot(self, cols:list[str] = None, height=2.5,section:str = None):
+        
+        if section is not None:
+            df = self._sections[section]
+        else:
+            df = self._data
+
+        if cols is not None and len(cols) > 0:
+            df = df[cols+[self.__target]]
+        
+        sns.pairplot(df, height=height, hue=self.__target, palette='tab10')

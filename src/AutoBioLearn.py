@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing_extensions import deprecated
 from matplotlib import pyplot as plt
-from data_treatment import DataProcessor
+from data_treatment import DataProcessor, DatasetByFile, DatasetByWeb
 
 import pandas as pd
 from decorators import apply_per_grouping, requires_dataset
@@ -24,10 +24,32 @@ class AutoBioLearn(ABC):
     def get_dataset(self, data_processor: DataProcessor):
         if not hasattr(self, 'data_processor'):
             self.data_processor = data_processor  
+    
+    def get_dataset_by_file(self, file_path: str,target: str,delimiter: str = None, header_size:int=1):
+        dataset= DatasetByFile(file_path=file_path,target=target,delimiter=delimiter, header_size= header_size)
+        data_processor = DataProcessor(dataset)
+        self.get_dataset(data_processor)
             
+    def get_dataset_by_web(self, url: str,target: str, header_size:int=1):
+        dataset= DatasetByWeb(url= url,target=target, header_size= header_size)
+        data_processor = DataProcessor(dataset)
+        self.get_dataset(data_processor)  
+
     @requires_dataset
     def generate_data_report(self, path_to_save_report=None):        
         self.data_processor.dataset.generate_data_report(path_to_save_report=path_to_save_report)
+
+    @requires_dataset
+    def generate_data_heatmap(self, show_values = False, fig_size= (0,0), section:str=None):
+        self.data_processor.dataset.generate_data_heatmap(show_values=show_values,fig_size=fig_size,section=section)
+
+    @requires_dataset
+    def generate_data_heatmap_custom(self, show_values = False, fig_size= (0,0), section:str=None):
+        self.data_processor.dataset.generate_data_heatmap_custom(show_values=show_values,fig_size=fig_size,section=section)
+    
+    @requires_dataset
+    def generate_data_pairplot(self, cols:list[str] = None, height=2.5,section:str = None):
+        self.data_processor.dataset.generate_data_pairplot(cols=cols, height= height,section=section)
 
     @requires_dataset
     def encode_categorical(self, cols:list[str] = [], parallel: bool = False):

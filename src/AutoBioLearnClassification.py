@@ -1,7 +1,7 @@
 from typing_extensions import deprecated
 import pandas as pd
 from sklearn.metrics import f1_score, precision_score, recall_score, roc_auc_score,accuracy_score
-from sklearn.model_selection import GridSearchCV, ParameterGrid, RandomizedSearchCV
+from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
 from AutoBioLearn import AutoBioLearn
 from decorators import apply_per_grouping, requires_dataset
 from helpers import ModelHelper
