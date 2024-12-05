@@ -35,3 +35,11 @@ class DataProcessor:
     @requires_dataset
     def encode_datetime(self, cols:list[str] = []):  
         self.dataset.clean_data(cols_date=cols)   
+
+    @requires_dataset
+    def plot_cols_na(self, value="percent", section: str=None):
+        self.dataset.plot_na(axis=ContentHelper.const_axis_column(),value= value , section= section)
+
+    @requires_dataset
+    def plot_rows_na(self, value="percent", section: str=None):
+        self.dataset.plot_na(axis=ContentHelper.const_axis_row(),value= value , section= section)

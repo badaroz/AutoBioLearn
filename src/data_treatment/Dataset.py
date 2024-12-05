@@ -101,7 +101,22 @@ class Dataset:
            self.__print_na(self._data,axis)
         else:           
             self.__print_na(self._sections[section],axis=axis)              
+
+    def plot_na(self, axis=1, value="percent",section:str=None):
+        df_na = pd.DataFrame
+        y_label_options = {'percent':'Percent of Missing Data', 'count': 'Count of Missing Data'}
+        if not self._has_many_header or not bool(self._sections):
+            df_na = self.__count_na(self._data,axis)
+        else:           
+            df_na = self.__count_na(self._sections[section],axis=axis)
         
+        if value not in ["percent","count"]:
+            raise ValueError("value only permits {'percent','count'} ")
+
+        df_na[value].plot(kind='bar', figsize=(8, 6), rot=90)
+        plt.ylabel(y_label_options[value])      
+
+        plt.show()    
     
     def __drop_na(self, df ,axis=0, percent=30.0, show_dropped=True):
         df_na = self.__count_na(df=df,axis=axis)

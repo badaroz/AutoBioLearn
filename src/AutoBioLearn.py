@@ -81,6 +81,16 @@ class AutoBioLearn(ABC):
         self.data_processor.show_rows_na(section= section)
 
     @requires_dataset
+    @apply_per_grouping  
+    def plot_cols_na(self, value="percent", section: str=None):
+        self.data_processor.plot_cols_na(value=value,section=section)
+
+    @requires_dataset
+    @apply_per_grouping  
+    def plot_rows_na(self, value="percent", section: str=None):
+        self.data_processor.plot_rows_na(value=value,section=section)
+
+    @requires_dataset
     def remove_cols(self, cols:list[str] = []):
         self.data_processor.remove_cols(cols)
 
