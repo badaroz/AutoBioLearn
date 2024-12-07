@@ -274,14 +274,17 @@ class Dataset:
                 self._sections_name.append(col)
 
     
-    def generate_data_heatmap(self, show_values = False, fig_size= (0,0), section:str=None):
-        if fig_size != (0,0):
-            _, ax = plt.subplots(figsize=fig_size)
-            sns.heatmap(self.get_X(section).corr(), ax= ax,vmin=-1, vmax=1, annot=show_values,  linewidths=.5, fmt=".2f")
+    def generate_data_heatmap(self, show_values = False, remove_repetead_value = False, fig_size= (0,0), section:str=None):
+        if remove_repetead_value:
+            self.__generate_data_heatmap_custom(show_values=show_values,fig_size=fig_size,section=section)
         else:
-             sns.heatmap(self.get_X(section).corr(), vmin=-1, vmax=1, annot=show_values,  linewidths=.5, fmt=".2f")
+            if fig_size != (0,0):
+                _, ax = plt.subplots(figsize=fig_size)
+                sns.heatmap(self.get_X(section).corr(), ax= ax,vmin=-1, vmax=1, annot=show_values,  linewidths=.5, fmt=".2f")
+            else:
+                sns.heatmap(self.get_X(section).corr(), vmin=-1, vmax=1, annot=show_values,  linewidths=.5, fmt=".2f")
     
-    def generate_data_heatmap_custom(self, show_values = False, fig_size= (0,0), section:str=None):
+    def __generate_data_heatmap_custom(self, show_values = False, fig_size= (0,0),section:str=None):
         X_corr = self.get_X(section).corr()
         mask = np.triu(X_corr)
         if fig_size != (0,0):
@@ -289,11 +292,11 @@ class Dataset:
 
             sns.heatmap(X_corr, mask=mask, ax= ax,
             annot=show_values, fmt=".2f", linewidths=0.5,
-            vmin=-1, vmax=1, cmap="vlag")
+            vmin=-1, vmax=1)
         else:           
             sns.heatmap(X_corr, mask=mask,
                 annot=show_values, fmt=".2f", linewidths=0.5,
-                vmin=-1, vmax=1, cmap="vlag")
+                vmin=-1, vmax=1)
       
     def generate_data_pairplot(self, cols:list[str] = None, height=2.5,section:str = None):
         
@@ -305,4 +308,5 @@ class Dataset:
         if cols is not None and len(cols) > 0:
             df = df[cols+[self.__target]]
         
-        sns.pairplot(df, height=height, hue=self.__target, palette='tab10')
+        sns.pairplot(df, height=height, hue=self.__target, palette='coolwarm')
+        #sns.pairplot(df, height=height, palette='tab10',)

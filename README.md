@@ -137,8 +137,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Authors and Acknowledgments
 
-- **Primary Author**: [Lucas Pinheiro Badaró Moreira](https://github.com/badaroz) - Contact for primary development and design.
-- **Contributors**: [Sérgio Nery Simões](https://github.com/badaroz)
+- **Authors**: [Lucas Pinheiro Badaró Moreira](https://github.com/badaroz),  [Sérgio Nery Simões](https://github.com/badaroz).
+- **Contributors**: 
 - **Acknowledgments**: Special thanks to collaborating institutions and funding bodies that supported this work.
 
 ---

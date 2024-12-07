@@ -40,12 +40,8 @@ class AutoBioLearn(ABC):
         self.data_processor.dataset.generate_data_report(path_to_save_report=path_to_save_report)
 
     @requires_dataset
-    def generate_data_heatmap(self, show_values = False, fig_size= (0,0), section:str=None):
-        self.data_processor.dataset.generate_data_heatmap(show_values=show_values,fig_size=fig_size,section=section)
-
-    @requires_dataset
-    def generate_data_heatmap_custom(self, show_values = False, fig_size= (0,0), section:str=None):
-        self.data_processor.dataset.generate_data_heatmap_custom(show_values=show_values,fig_size=fig_size,section=section)
+    def generate_data_heatmap(self, show_values = False, remove_repetead_value = False,fig_size= (0,0), section:str=None):
+        self.data_processor.dataset.generate_data_heatmap(show_values=show_values,remove_repetead_value=remove_repetead_value,fig_size=fig_size,section=section)    
     
     @requires_dataset
     def generate_data_pairplot(self, cols:list[str] = None, height=2.5,section:str = None):
@@ -288,7 +284,7 @@ class AutoBioLearn(ABC):
                    pass                  
         
     @apply_per_grouping        
-    def plot_shap_analysis(self,index_to_filter=None,graph_type_global="summary",graph_type_local="force",show_all_features =True,class_index: int =0,**kwargs):
+    def plot_shap_analysis(self,register=None,graph_type_global="summary",graph_type_local="force",show_all_features =True,class_index: int =0,**kwargs):
         """
         class_index works only lightgbm models, class_index is max value the number of classes in dataset -1.(Eg.: total class = 3, class_index_max=2)
         kwargs use a list to filter by key models to analisys, where each key receives a list of values that will be filtered 
@@ -312,7 +308,7 @@ class AutoBioLearn(ABC):
             if "section" in model_explainable:
                 X = self.data_processor.dataset.get_X(model_explainable["section"])
                     
-            if index_to_filter is not None:
+            if register is not None:
                 expected_value = model_explainable["expected_value"]
                 shap_values = model_explainable["shap_values"]
 
@@ -320,7 +316,7 @@ class AutoBioLearn(ABC):
                     expected_value = expected_value[class_index]
                     shap_values =  shap_values[class_index]
                 
-                XAIHelper.get_chart_type_local(graph_type_local,expected_value,shap_values[index_to_filter],X.iloc[index_to_filter], \
+                XAIHelper.get_chart_type_local(graph_type_local,expected_value,shap_values[register],X.iloc[register], \
                                                          kwargs_filtered_graph, show_all_features=show_all_features)
 
             else:
